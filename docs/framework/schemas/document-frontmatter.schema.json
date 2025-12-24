@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/document-frontmatter.schema.json",
+  "title": "PKF Document Frontmatter",
+  "description": "Standard frontmatter schema for PKF documents",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "description": "Document version (SemVer)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Draft", "Active", "Deprecated", "Archived"],
+      "description": "Document status"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "author": {
+      "type": "string",
+      "description": "Document author"
+    },
+    "reviewers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Document reviewers"
+    },
+    "supersedes": {
+      "type": "string",
+      "description": "Document this supersedes"
+    },
+    "superseded_by": {
+      "type": "string",
+      "description": "Document that supersedes this one"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Document tags for categorization"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "specification",
+        "template",
+        "guide",
+        "reference",
+        "architecture",
+        "api",
+        "proposal",
+        "adr"
+      ],
+      "description": "Document category"
+    }
+  },
+  "additionalProperties": true
+}

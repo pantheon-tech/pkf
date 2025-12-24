@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/directory-structure.schema.json",
+  "title": "PKF Directory Structure",
+  "description": "Schema defining the expected directory structure for PKF projects",
+  "type": "object",
+  "required": ["type", "required", "optional"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["project", "package"],
+      "description": "Structure type"
+    },
+    "required": {
+      "type": "object",
+      "description": "Required files and directories",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "description", "template"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "File path relative to root"
+              },
+              "description": {
+                "type": "string",
+                "description": "Purpose of this file"
+              },
+              "template": {
+                "type": ["string", "null"],
+                "description": "Template to use for creation"
+              }
+            }
+          },
+          "description": "Required files"
+        },
+        "directories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "description"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Directory path relative to root"
+              },
+              "description": {
+                "type": "string",
+                "description": "Purpose of this directory"
+              },
+              "requiresReadme": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether README.md is required"
+              }
+            }
+          },
+          "description": "Required directories"
+        }
+      }
+    },
+    "optional": {
+      "type": "object",
+      "description": "Optional files and directories",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "description", "condition"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "File path relative to root"
+              },
+              "description": {
+                "type": "string",
+                "description": "Purpose of this file"
+              },
+              "condition": {
+                "type": "string",
+                "description": "When this file should be created"
+              },
+              "template": {
+                "type": ["string", "null"],
+                "description": "Template to use for creation"
+              }
+            }
+          },
+          "description": "Optional files"
+        },
+        "directories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "description", "condition"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Directory path relative to root"
+              },
+              "description": {
+                "type": "string",
+                "description": "Purpose of this directory"
+              },
+              "condition": {
+                "type": "string",
+                "description": "When this directory should be created"
+              }
+            }
+          },
+          "description": "Optional directories"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "projectStructure": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "project" },
+        "required": {
+          "properties": {
+            "files": {
+              "default": [
+                { "path": "CLAUDE.md", "description": "AI agent guidance", "template": "CLAUDE-TEMPLATE.md" },
+                { "path": "README.md", "description": "Project overview", "template": null },
+                { "path": "docs/README.md", "description": "Documentation hub", "template": null },
+                { "path": "docs/registers/TODO.md", "description": "Task tracking", "template": "TODO-TEMPLATE.md" },
+                { "path": "docs/registers/ISSUES.md", "description": "Issue tracking", "template": "ISSUES-TEMPLATE.md" },
+                { "path": "docs/registers/CHANGELOG.md", "description": "Version history", "template": "CHANGELOG-TEMPLATE.md" }
+              ]
+            },
+            "directories": {
+              "default": [
+                { "path": "docs", "description": "Active documentation", "requiresReadme": true },
+                { "path": "docs/registers", "description": "Register files", "requiresReadme": false }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "packageStructure": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "package" },
+        "required": {
+          "properties": {
+            "files": {
+              "default": [
+                { "path": "CLAUDE.md", "description": "Package AI guidance", "template": "CLAUDE-TEMPLATE.md" },
+                { "path": "README.md", "description": "Package overview", "template": null },
+                { "path": "docs/README.md", "description": "Package docs hub", "template": null },
+                { "path": "docs/registers/TODO.md", "description": "Package tasks", "template": "TODO-TEMPLATE.md" },
+                { "path": "docs/registers/ISSUES.md", "description": "Package issues", "template": "ISSUES-TEMPLATE.md" },
+                { "path": "docs/registers/CHANGELOG.md", "description": "Package changelog", "template": "CHANGELOG-TEMPLATE.md" }
+              ]
+            },
+            "directories": {
+              "default": [
+                { "path": "docs", "description": "Package documentation", "requiresReadme": true },
+                { "path": "docs/registers", "description": "Package registers", "requiresReadme": false }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

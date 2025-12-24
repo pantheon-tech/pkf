@@ -1,0 +1,226 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/pkf-config.schema.json",
+  "title": "PKF Configuration",
+  "description": "Project-level PKF configuration schema",
+  "type": "object",
+  "required": ["version", "project"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference URI"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "description": "PKF specification version (SemVer)",
+      "examples": ["1.0.0", "1.0.0-alpha.1"]
+    },
+    "project": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Project name",
+          "examples": ["my-project", "CAOF"]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+          "description": "Project version (SemVer)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief project description"
+        },
+        "repository": {
+          "type": "string",
+          "format": "uri",
+          "description": "Git repository URL"
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "description": "Directory structure configuration",
+      "properties": {
+        "docsDir": {
+          "type": "string",
+          "default": "docs",
+          "description": "Main documentation directory"
+        },
+        "archiveDir": {
+          "type": "string",
+          "default": "docs_archive",
+          "description": "Documentation archive directory"
+        },
+        "registersDir": {
+          "type": "string",
+          "default": "docs/registers",
+          "description": "Registers directory path"
+        },
+        "templatesDir": {
+          "type": "string",
+          "default": "docs/framework/templates",
+          "description": "Templates directory path"
+        },
+        "schemasDir": {
+          "type": "string",
+          "default": "docs/framework/schemas",
+          "description": "JSON schemas directory path"
+        },
+        "agentsDir": {
+          "type": "string",
+          "default": ".claude/agents",
+          "description": "AI agent definitions directory"
+        }
+      }
+    },
+    "registers": {
+      "type": "object",
+      "description": "Register configuration",
+      "properties": {
+        "todoFile": {
+          "type": "string",
+          "default": "TODO.md",
+          "description": "TODO register filename"
+        },
+        "issuesFile": {
+          "type": "string",
+          "default": "ISSUES.md",
+          "description": "Issues register filename"
+        },
+        "changelogFile": {
+          "type": "string",
+          "default": "CHANGELOG.md",
+          "description": "Changelog register filename"
+        },
+        "idPrefix": {
+          "type": "object",
+          "properties": {
+            "todo": {
+              "type": "string",
+              "default": "TODO",
+              "description": "TODO item ID prefix"
+            },
+            "issue": {
+              "type": "string",
+              "default": "ISSUE",
+              "description": "Issue item ID prefix"
+            },
+            "proposal": {
+              "type": "string",
+              "default": "PROP",
+              "description": "Proposal ID prefix"
+            },
+            "adr": {
+              "type": "string",
+              "default": "ADR",
+              "description": "ADR ID prefix"
+            }
+          }
+        },
+        "idPadding": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "default": 3,
+          "description": "Number of digits for ID padding"
+        }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "description": "AI agent configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether AI agent features are enabled"
+        },
+        "guidanceFile": {
+          "type": "string",
+          "default": "CLAUDE.md",
+          "description": "AI guidance filename"
+        },
+        "systemPromptFile": {
+          "type": "string",
+          "default": ".claude/SYSTEM-PROMPT.md",
+          "description": "Extended system prompt file"
+        },
+        "customAgents": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether custom agent definitions are used"
+        }
+      }
+    },
+    "packages": {
+      "type": "object",
+      "description": "Multi-package project configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether project has multiple packages"
+        },
+        "directory": {
+          "type": "string",
+          "default": "packages",
+          "description": "Packages directory path"
+        },
+        "inheritRules": {
+          "type": "boolean",
+          "default": true,
+          "description": "Packages inherit project-level rules"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation configuration",
+      "properties": {
+        "validateSchemas": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate register items against schemas"
+        },
+        "validateLinks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate internal documentation links"
+        },
+        "requireNavHubs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require README.md navigation hubs"
+        }
+      }
+    },
+    "proposals": {
+      "type": "object",
+      "description": "Proposal system configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether proposal system is enabled"
+        },
+        "ranges": {
+          "type": "object",
+          "description": "Proposal numbering ranges",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "min": { "type": "integer" },
+              "max": { "type": "integer" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

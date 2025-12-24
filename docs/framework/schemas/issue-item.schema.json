@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/issue-item.schema.json",
+  "title": "PKF Issue Item",
+  "description": "Schema for ISSUES register items",
+  "type": "object",
+  "required": ["id", "type", "status", "severity", "created"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ISSUE-\\d{3,}$",
+      "description": "Issue item ID (e.g., ISSUE-001)",
+      "examples": ["ISSUE-001", "ISSUE-023", "ISSUE-142"]
+    },
+    "type": {
+      "type": "string",
+      "const": "issue-item",
+      "description": "Item type (always 'issue-item')"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "investigating", "in-progress", "resolved", "wontfix", "duplicate"],
+      "description": "Current status of the issue"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "default": "medium",
+      "description": "Priority level"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Issue severity (impact level)"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "reported_by": {
+      "type": ["string", "null"],
+      "description": "Person who reported the issue"
+    },
+    "assignee": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Assigned person or team"
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Labels for categorization",
+      "examples": [["bug", "memory-leak"], ["security", "urgent"]]
+    },
+    "related_issues": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^ISSUE-\\d{3,}$"
+      },
+      "default": [],
+      "description": "Related issue IDs"
+    },
+    "related_todos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^TODO-\\d{3,}$"
+      },
+      "default": [],
+      "description": "Related TODO IDs"
+    },
+    "related_proposals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^PROP-\\d{3,}$"
+      },
+      "default": [],
+      "description": "Related proposal IDs"
+    },
+    "affects_version": {
+      "type": ["string", "null"],
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "description": "Version where issue was found"
+    },
+    "fixed_in_version": {
+      "type": ["string", "null"],
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "description": "Version where issue was fixed"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Brief summary of the issue"
+    },
+    "steps_to_reproduce": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Steps to reproduce the issue"
+    },
+    "expected_behavior": {
+      "type": "string",
+      "description": "What should happen"
+    },
+    "actual_behavior": {
+      "type": "string",
+      "description": "What actually happens"
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "os": { "type": "string" },
+        "nodejs_version": { "type": "string" },
+        "package_version": { "type": "string" },
+        "additional_context": { "type": "string" }
+      },
+      "description": "Environment details"
+    },
+    "root_cause": {
+      "type": ["string", "null"],
+      "description": "Root cause analysis (filled when investigated)"
+    },
+    "resolution": {
+      "type": ["string", "null"],
+      "description": "How the issue was resolved"
+    },
+    "workaround": {
+      "type": ["string", "null"],
+      "description": "Temporary workaround"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/changelog-entry.schema.json",
+  "title": "PKF Changelog Entry",
+  "description": "Schema for CHANGELOG register entries",
+  "type": "object",
+  "required": ["version", "type", "status"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^(unreleased|\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?)$",
+      "description": "Version identifier (e.g., '1.2.3', 'unreleased')",
+      "examples": ["1.0.0", "0.1.0-alpha.1", "unreleased"]
+    },
+    "type": {
+      "type": "string",
+      "const": "changelog-entry",
+      "description": "Entry type (always 'changelog-entry')"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["unreleased", "released"],
+      "description": "Release status"
+    },
+    "date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Release date (YYYY-MM-DD), null for unreleased"
+    },
+    "release_type": {
+      "type": ["string", "null"],
+      "enum": ["major", "minor", "patch", "alpha", "beta", "rc", null],
+      "description": "Type of release"
+    },
+    "breaking_changes": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this version contains breaking changes"
+    },
+    "migration_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether migration is required from previous version"
+    },
+    "migration_notes": {
+      "type": ["string", "null"],
+      "description": "Migration instructions (if migration_required is true)"
+    },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Release highlights"
+    },
+    "contributors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Contributors to this release"
+    },
+    "added": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "New features added"
+    },
+    "changed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Changes to existing functionality"
+    },
+    "deprecated": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Features deprecated in this release"
+    },
+    "removed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Features removed in this release"
+    },
+    "fixed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Bugs fixed in this release"
+    },
+    "security": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Security-related changes"
+    },
+    "related_todos": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^TODO-\\d{3,}$"
+      },
+      "description": "TODOs completed in this release"
+    },
+    "related_issues": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^ISSUE-\\d{3,}$"
+      },
+      "description": "Issues resolved in this release"
+    },
+    "related_proposals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^PROP-\\d{3,}$"
+      },
+      "description": "Proposals implemented in this release"
+    }
+  },
+  "additionalProperties": false
+}

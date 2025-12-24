@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/template-metadata.schema.json",
+  "title": "PKF Template Metadata",
+  "description": "Schema for template file metadata and placeholders",
+  "type": "object",
+  "required": ["name", "version", "category", "placeholders"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Template name (e.g., 'CLAUDE-TEMPLATE')"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Template version"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "register",
+        "specification",
+        "guide",
+        "reference",
+        "architecture",
+        "ai-guidance",
+        "proposal"
+      ],
+      "description": "Template category"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of template purpose"
+    },
+    "targetFile": {
+      "type": "string",
+      "description": "Typical output filename"
+    },
+    "placeholders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "description", "required"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^\\{\\{[A-Z_]+\\}\\}$",
+            "description": "Placeholder key (e.g., '{{PROJECT_NAME}}')"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this placeholder represents"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether placeholder must be replaced"
+          },
+          "default": {
+            "type": ["string", "null"],
+            "description": "Default value if optional"
+          },
+          "examples": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Example values"
+          }
+        }
+      },
+      "description": "List of placeholders in the template"
+    },
+    "sections": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required sections in output document"
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional sections in output document"
+        }
+      },
+      "description": "Section requirements"
+    },
+    "appliesTo": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["project", "package", "module", "any"]
+      },
+      "description": "What levels this template applies to"
+    }
+  },
+  "additionalProperties": false
+}

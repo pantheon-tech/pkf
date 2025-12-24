@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/todo-item.schema.json",
+  "title": "PKF TODO Item",
+  "description": "Schema for TODO register items",
+  "type": "object",
+  "required": ["id", "type", "status", "priority", "created"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^TODO-\\d{3,}$",
+      "description": "TODO item ID (e.g., TODO-001)",
+      "examples": ["TODO-001", "TODO-042", "TODO-123"]
+    },
+    "type": {
+      "type": "string",
+      "const": "todo-item",
+      "description": "Item type (always 'todo-item')"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in-progress", "blocked", "completed", "cancelled"],
+      "description": "Current status of the TODO item"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "default": "medium",
+      "description": "Priority level"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "assignee": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Assigned person or team"
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Labels for categorization",
+      "examples": [["feature", "enhancement"], ["bug", "urgent"]]
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^TODO-\\d{3,}$"
+      },
+      "default": [],
+      "description": "TODOs this item depends on"
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^TODO-\\d{3,}$"
+      },
+      "default": [],
+      "description": "TODOs this item blocks"
+    },
+    "related_issues": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^ISSUE-\\d{3,}$"
+      },
+      "default": [],
+      "description": "Related issue IDs"
+    },
+    "proposal_ref": {
+      "type": ["string", "null"],
+      "pattern": "^PROP-\\d{3,}$",
+      "description": "Related proposal ID"
+    },
+    "estimated_effort": {
+      "type": ["string", "null"],
+      "enum": ["small", "medium", "large", "xlarge", null],
+      "default": null,
+      "description": "Estimated effort level"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the task"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of acceptance criteria"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or context"
+    }
+  },
+  "additionalProperties": false
+}

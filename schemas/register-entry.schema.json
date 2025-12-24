@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/register-entry.schema.json",
+  "title": "PKF Register Entry",
+  "description": "Base schema for all register entries (TODO, ISSUE, CHANGELOG)",
+  "type": "object",
+  "required": ["id", "type", "status", "created"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-\\d{3,}$|^v\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+      "description": "Unique identifier (e.g., TODO-001, ISSUE-023, v1.2.3)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["todo-item", "issue-item", "changelog-entry"],
+      "description": "Entry type"
+    },
+    "status": {
+      "type": "string",
+      "description": "Entry status (varies by type)"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Labels/tags for categorization"
+    },
+    "assignee": {
+      "type": ["string", "null"],
+      "description": "Assigned person or team"
+    }
+  },
+  "additionalProperties": true
+}
