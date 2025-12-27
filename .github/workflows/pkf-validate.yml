@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Install pkf-processor dependencies
-        run: npm ci
+        run: npm install
         working-directory: packages/pkf-processor
 
       - name: Build pkf-processor
