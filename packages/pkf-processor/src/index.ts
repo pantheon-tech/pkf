@@ -113,3 +113,58 @@ export {
   type GeneratedSchema,
   type GenerationOptions,
 } from './dsl/index.js';
+
+// Template System
+export {
+  // Schema
+  TemplateDefinitionSchema,
+  TemplatesFileSchema,
+  BodySectionSchema,
+  FrontmatterConfigSchema,
+  type TemplateDefinition,
+  type TemplatesFile,
+  type BodySection,
+  type FrontmatterConfig,
+  // Variables
+  substituteVariables,
+  substituteVariablesLenient,
+  extractVariables,
+  padNumber,
+  slugify,
+  getCurrentDate,
+  createDefaultVariables,
+  type TemplateVariables,
+  type SubstitutionError,
+  // Parser
+  parseTemplatesFile,
+  getTemplate,
+  listTemplateNames,
+  getTemplatesForSchema,
+  type ParseError,
+  // Frontmatter
+  generateFrontmatter,
+  validateFrontmatter,
+  extractFrontmatter,
+  type FrontmatterError,
+  // Body
+  generateBody,
+  getRequiredSections,
+  validateSections,
+  type BodyError,
+  // Generator
+  generateTemplate,
+  generateAllTemplates,
+  generateTemplateByName,
+  generateTemplatesForSchema,
+  type GeneratedTemplate,
+  type GenerateError,
+  type GenerateOptions,
+  // Writer
+  writeTemplate,
+  writeTemplates,
+  type WriteError,
+  type WriteResult,
+  type WriteOptions,
+  type BatchWriteOptions,
+  type BatchWriteResult,
+} from './template/index.js';
