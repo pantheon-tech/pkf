@@ -32,8 +32,8 @@ export interface StructureJson {
 function namingPatternToWildcard(naming: string): string {
   // Extract file extension (everything after the last dot)
   const lastDotIndex = naming.lastIndexOf('.');
-  if (lastDotIndex === -1) {
-    // No extension found, return simple wildcard
+  if (lastDotIndex === -1 || lastDotIndex === naming.length - 1) {
+    // No extension found or dot is at the end, return simple wildcard
     return '*';
   }
   
