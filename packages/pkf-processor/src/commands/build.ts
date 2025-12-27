@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import chalk from 'chalk';
 import { parseConfigFile } from '../parser/index.js';
@@ -8,6 +8,7 @@ import {
   generatePathSchemaMap,
   generateRemarkConfig,
 } from '../generator/index.js';
+import { parseSchemasFile, generateAllSchemas } from '../dsl/index.js';
 import { formatErrors } from '../errors/index.js';
 import type { ProcessorOutput, ProcessorError } from '../types.js';
 
@@ -79,7 +80,46 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
 
   console.log(chalk.green('✓ Artifacts generated'));
 
-  // 4. Output summary
+  // 4. Generate JSON Schemas from schemas.yaml (if exists)
+  const schemaFiles: string[] = [];
+  const schemasPath = config.components?.schemas ?? 'schemas.yaml';
+
+  if (existsSync(schemasPath)) {
+    console.log(chalk.gray('Generating JSON schemas...'));
+
+    const schemasContent = readFileSync(schemasPath, 'utf8');
+    const schemasResult = parseSchemasFile(schemasContent, schemasPath);
+
+    if (!schemasResult.success) {
+      console.error(formatErrors(schemasResult.error));
+      process.exit(1);
+    }
+
+    const generatedSchemas = generateAllSchemas(schemasResult.data, {
+      outputDir: join(options.output, 'schemas'),
+    });
+
+    let schemaCount = 0;
+    for (const [name, result] of generatedSchemas) {
+      if (result.success) {
+        const schemaPath = join(options.output, 'schemas', `${name}.schema.json`);
+        writeOutput(schemaPath, JSON.stringify(result.data.schema, null, 2));
+        schemaFiles.push(schemaPath);
+        schemaCount++;
+      } else {
+        errors.push(...result.error);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.error(formatErrors(errors));
+      process.exit(1);
+    }
+
+    console.log(chalk.green(`✓ Generated ${schemaCount} JSON schemas`));
+  }
+
+  // 5. Output summary
   const duration = Date.now() - startTime;
 
   console.log();
@@ -87,6 +127,9 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
   console.log(`  ${chalk.cyan(structurePath)}`);
   console.log(`  ${chalk.cyan(pathMapPath)}`);
   console.log(`  ${chalk.cyan(remarkPath)}`);
+  for (const schemaFile of schemaFiles) {
+    console.log(`  ${chalk.cyan(schemaFile)}`);
+  }
   console.log();
   console.log(chalk.green(`Build complete in ${duration}ms`));
 
@@ -94,7 +137,7 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
   const output: ProcessorOutput = {
     success: true,
     artifacts: {
-      schemas: [],
+      schemas: schemaFiles,
       structureJson: structurePath,
       remarkConfig: remarkPath,
       pathSchemaMap: pathMapPath,

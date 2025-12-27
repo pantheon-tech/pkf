@@ -78,3 +78,38 @@ export {
   formatErrors,
   formatStructureError,
 } from './errors/index.js';
+
+// DSL
+export {
+  // Types
+  DslPropertySchema,
+  type DslProperty,
+  IdConfigSchema,
+  type IdConfig,
+  DslSchemaDefinitionSchema,
+  type DslSchemaDefinition,
+  SchemasFileSchema,
+  type SchemasFile,
+  type JsonSchemaProperty,
+  type JsonSchema,
+  // Parser
+  parseSchemasFile,
+  getSchemaDefinition,
+  getSchemaNames,
+  getSchemaParent,
+  getInheritanceChain,
+  // Transformer
+  transformType,
+  transformProperty,
+  transformProperties,
+  transformStatuses,
+  transformIdConfig,
+  generateIdPattern,
+  buildRequiredArray,
+  // Generator
+  generateSchema,
+  generateAllSchemas,
+  validateSchemaReferences,
+  type GeneratedSchema,
+  type GenerationOptions,
+} from './dsl/index.js';
