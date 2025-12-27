@@ -31,8 +31,16 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install root dependencies
         run: npm ci
+
+      - name: Install pkf-processor dependencies
+        run: npm ci
+        working-directory: packages/pkf-processor
+
+      - name: Build pkf-processor
+        run: npm run build
+        working-directory: packages/pkf-processor
 
       - name: Build PKF artifacts
         run: npm run pkf:build
