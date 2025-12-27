@@ -4,13 +4,42 @@
 
 ## Contents
 
-*Architecture documentation is planned. See [TODO-001](../registers/TODO.md#todo-001-add-architecture-documentation).*
+### Core Architecture
 
-## Planned Documentation
+- **[PKF-ARCHITECTURE.md](PKF-ARCHITECTURE.md)** - Comprehensive framework architecture specification
+  - Compose Pattern for declarative tree configuration
+  - Component Type System
+  - Schema and Template Systems
+  - Enforcement Architecture (deterministic validation)
+  - Filing Agent Protocol (AI orchestration)
+  - Integration Patterns
 
-- **PKF-ARCHITECTURE.md** - Framework architecture overview
+### Planned Documentation
+
 - **DESIGN-DECISIONS.md** - Key design decisions and rationale
 - **decisions/** - Architecture Decision Records (ADRs)
+
+## Architecture Overview
+
+PKF provides a layered architecture for documentation management:
+
+```
+Layer 4: AI Orchestration    - PKF Filing Agent (optional)
+Layer 3: Enforcement         - Pre-commit, CI/CD, IDE
+Layer 2: Validation          - Schema, Structure, Frontmatter, Links
+Layer 1: Definition          - Config, Types, Schemas, Templates
+Layer 0: Repository          - docs/, Markdown, Git
+```
+
+## Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Compose Pattern** | Configuration directly represents the documentation tree |
+| **Component Types** | Defines behavior of nodes (section, document, register) |
+| **Schema System** | JSON Schema validation for frontmatter |
+| **Enforcement Layers** | Automated validation at multiple stages |
+| **Filing Agent** | AI intermediary for document intake |
 
 ## See Also
 
@@ -19,4 +48,6 @@
 
 ---
 
-**Last Updated:** 2025-12-24
+**Status:** Architecture specification draft complete, pending peer review.
+
+**Last Updated:** 2025-12-27
