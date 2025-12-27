@@ -11,8 +11,9 @@ Thumbs.db
 # Local settings
 .claude/settings.local.json
 
-# Node modules (if tooling is added later)
+# Node modules
 node_modules/
+package-lock.json
 
 # Logs
 *.log
