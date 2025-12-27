@@ -24,17 +24,21 @@ export interface StructureJson {
 
 /**
  * Convert a naming pattern to a wildcard pattern.
- * Replaces all placeholders (e.g., {{SECTION}}) with wildcards.
+ * Extracts the file extension from the naming pattern and creates a simple wildcard.
  * 
- * @param naming - Naming pattern like "{{SECTION}}-{{STATE}}.md"
- * @returns Wildcard pattern like "*.md"
+ * @param naming - Naming pattern like "{{SECTION}}-{{STATE}}.md" or "P{nn}-*.md"
+ * @returns Wildcard pattern like "*.md" matching all files with the same extension
  */
 function namingPatternToWildcard(naming: string): string {
-  // Replace all placeholder patterns {{...}} with *
-  const pattern = naming.replace(/\{\{[^}]+\}\}/g, '*');
+  // Extract file extension (everything after the last dot)
+  const lastDotIndex = naming.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    // No extension found, return simple wildcard
+    return '*';
+  }
   
-  // Collapse multiple consecutive asterisks into one
-  return pattern.replace(/\*+/g, '*');
+  const extension = naming.substring(lastDotIndex);
+  return `*${extension}`;
 }
 
 /**
