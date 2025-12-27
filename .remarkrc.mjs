@@ -9,7 +9,7 @@ import remarkValidateLinks from 'remark-validate-links';
 let pathSchemaMap = {};
 try {
   const { default: generated } = await import('./.pkf/generated/path-schema-map.json', {
-    assert: { type: 'json' },
+    with: { type: 'json' },
   });
   pathSchemaMap = generated.mappings || {};
 } catch {

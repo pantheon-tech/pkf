@@ -146,6 +146,9 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
     duration,
   };
 
+  // When PKF_JSON_OUTPUT is set (to any non-empty value), emit the full ProcessorOutput
+  // object as pretty-printed JSON to stdout. This is intended for machine-readable
+  // consumption (e.g. CI pipelines or tooling) and does not affect the generated files.
   if (process.env['PKF_JSON_OUTPUT']) {
     console.log(JSON.stringify(output, null, 2));
   }
