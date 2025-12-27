@@ -23,6 +23,25 @@ export interface StructureJson {
 }
 
 /**
+ * Convert a naming pattern to a wildcard pattern.
+ * Extracts the file extension from the naming pattern and creates a simple wildcard.
+ * 
+ * @param naming - Naming pattern like "{{SECTION}}-{{STATE}}.md" or "P{nn}-*.md"
+ * @returns Wildcard pattern like "*.md" matching all files with the same extension
+ */
+function namingPatternToWildcard(naming: string): string {
+  // Extract file extension (everything after the last dot)
+  const lastDotIndex = naming.lastIndexOf('.');
+  if (lastDotIndex === -1 || lastDotIndex === naming.length - 1) {
+    // No extension found or dot is at the end, return simple wildcard
+    return '*';
+  }
+  
+  const extension = naming.substring(lastDotIndex);
+  return `*${extension}`;
+}
+
+/**
  * Insert a node into the structure tree at the given path.
  */
 function insertNode(
@@ -59,7 +78,8 @@ function insertNode(
 
   if (node.type === 'pattern') {
     // Pattern nodes become wildcard entries
-    current.children['*.md'] = {
+    const wildcardKey = node.naming ? namingPatternToWildcard(node.naming) : '*.md';
+    current.children[wildcardKey] = {
       type: 'file',
       required: false,
       pattern: node.naming,
