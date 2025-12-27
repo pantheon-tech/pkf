@@ -23,6 +23,21 @@ export interface StructureJson {
 }
 
 /**
+ * Convert a naming pattern to a wildcard pattern.
+ * Replaces all placeholders (e.g., {{SECTION}}) with wildcards.
+ * 
+ * @param naming - Naming pattern like "{{SECTION}}-{{STATE}}.md"
+ * @returns Wildcard pattern like "*.md"
+ */
+function namingPatternToWildcard(naming: string): string {
+  // Replace all placeholder patterns {{...}} with *
+  const pattern = naming.replace(/\{\{[^}]+\}\}/g, '*');
+  
+  // Collapse multiple consecutive asterisks into one
+  return pattern.replace(/\*+/g, '*');
+}
+
+/**
  * Insert a node into the structure tree at the given path.
  */
 function insertNode(
@@ -59,7 +74,8 @@ function insertNode(
 
   if (node.type === 'pattern') {
     // Pattern nodes become wildcard entries
-    current.children['*.md'] = {
+    const wildcardKey = node.naming ? namingPatternToWildcard(node.naming) : '*.md';
+    current.children[wildcardKey] = {
       type: 'file',
       required: false,
       pattern: node.naming,
