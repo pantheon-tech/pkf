@@ -1,0 +1,85 @@
+# PKF Schema Definitions
+# Human-friendly DSL that compiles to JSON Schema draft-07
+
+schemas:
+  # Base document schema - all documents inherit from this
+  base-document:
+    description: Base schema for all PKF documents
+    properties:
+      title:
+        type: string
+        required: true
+        description: Document title
+      created:
+        type: date
+        required: true
+        description: Creation date (YYYY-MM-DD)
+      updated:
+        type: date
+        description: Last update date
+      author:
+        type: string
+        description: Document author
+
+  # Proposal schema
+  proposal:
+    extends: base-document
+    description: PKF proposal document schema
+    id:
+      prefix: P
+      format: nn
+    statuses: [draft, active, archived, rejected]
+    properties:
+      summary:
+        type: string
+        description: Brief proposal summary
+      motivation:
+        type: string
+        description: Why this proposal is needed
+
+  # Architecture document schema
+  architecture-doc:
+    extends: base-document
+    description: Architecture documentation schema
+    statuses: [draft, review, approved, deprecated]
+    properties:
+      version:
+        type: string
+        pattern: "^\\d+\\.\\d+\\.\\d+(-\\w+)?$"
+        description: Document version (semver)
+
+  # TODO item schema for registers
+  todo-item:
+    description: TODO register item schema
+    id:
+      prefix: TODO
+      format: nnn
+    statuses: [pending, in-progress, completed, cancelled]
+    properties:
+      title:
+        type: string
+        required: true
+      priority:
+        type: string
+        enum: [low, medium, high, critical]
+      assignee:
+        type: string
+      due:
+        type: date
+
+  # Issue item schema for registers
+  issue-item:
+    description: Issue register item schema
+    id:
+      prefix: ISSUE
+      format: nnn
+    statuses: [open, investigating, resolved, wontfix]
+    properties:
+      title:
+        type: string
+        required: true
+      severity:
+        type: string
+        enum: [minor, major, critical, blocker]
+      reporter:
+        type: string

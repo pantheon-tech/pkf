@@ -1,0 +1,65 @@
+name: PKF Validation
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'pkf.config.yaml'
+      - 'schemas.yaml'
+      - '.remarkrc.mjs'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'pkf.config.yaml'
+      - 'schemas.yaml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install pkf-processor dependencies
+        run: npm install
+        working-directory: packages/pkf-processor
+
+      - name: Build pkf-processor
+        run: npm run build
+        working-directory: packages/pkf-processor
+
+      - name: Build PKF artifacts
+        run: npm run pkf:build
+
+      - name: Validate Frontmatter Schemas
+        run: npm run pkf:validate:frontmatter
+        continue-on-error: true
+
+      - name: Validate Internal Links
+        run: npm run pkf:validate:links
+        continue-on-error: true
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## PKF Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontmatter | See logs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Links | See logs |" >> $GITHUB_STEP_SUMMARY

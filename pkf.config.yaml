@@ -1,0 +1,44 @@
+version: "1.0.0"
+
+project:
+  name: PKF
+  description: Project Knowledge Framework
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+  _description: Documentation root
+
+  architecture:
+    _type: section
+    _readme: true
+    _description: Architecture documentation
+
+  proposals:
+    _type: section
+    _readme: true
+    _description: Proposals and RFCs
+    _lifecycle: [draft, active, archived]
+    _items:
+      _type: document
+      _schema: proposal
+      _naming: "P{nn}-*.md"
+
+  registers:
+    _type: section
+    _readme: true
+    _description: Tracking registers
+    TODO.md:
+      _type: register
+      _schema: todo-item
+    ISSUES.md:
+      _type: register
+      _schema: issue-item
+
+  implementation:
+    _type: section
+    _readme: true
+    _description: Implementation plans
