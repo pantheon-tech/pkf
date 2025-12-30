@@ -257,6 +257,8 @@ export interface InitOptions {
   force?: boolean;
   /** Verbose output */
   verbose?: boolean;
+  /** Stream agent output in real-time */
+  stream?: boolean;
 }
 
 /**

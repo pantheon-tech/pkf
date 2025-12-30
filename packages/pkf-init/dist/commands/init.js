@@ -38,6 +38,8 @@ export const initCommand = new Command('init')
     .option('--skip-backup', 'Skip creating backup')
     .option('--force', 'Force overwrite and ignore warnings')
     .option('-v, --verbose', 'Verbose output')
+    .option('-s, --stream', 'Stream agent output in real-time', true)
+    .option('--no-stream', 'Disable streaming output')
     .action(async (options) => {
     await runInit(options);
 });
@@ -74,7 +76,15 @@ export async function runInit(options) {
         const client = new AnthropicClient(config.apiKey);
         const rateLimiter = new RateLimiter(config.apiTier);
         const costTracker = new CostTracker(config.maxCost);
-        const orchestrator = new AgentOrchestrator(client, rateLimiter, costTracker);
+        // Configure streaming if enabled (default: true)
+        const streamingEnabled = options.stream !== false;
+        const streamCallback = streamingEnabled
+            ? logger.createStreamCallback('Agent Output')
+            : undefined;
+        const orchestrator = new AgentOrchestrator(client, rateLimiter, costTracker, {
+            streaming: streamingEnabled,
+            onStream: streamCallback,
+        });
         const interactive = new Interactive(options.interactive ?? false);
         const requestQueue = new RequestQueue(rateLimiter, config.workers);
         // Load existing state or create new

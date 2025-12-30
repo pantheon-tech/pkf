@@ -8,6 +8,8 @@ import chalk from 'chalk';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 let verboseMode = false;
+let streamingMode = false;
+let streamBuffer = '';
 
 /**
  * Set verbose mode
@@ -108,6 +110,87 @@ export function createLogger(prefix: string) {
   };
 }
 
+/**
+ * Start streaming mode - shows agent output as it arrives
+ * @param label - Label to show before streaming content
+ */
+export function startStreaming(label?: string): void {
+  streamingMode = true;
+  streamBuffer = '';
+  if (label) {
+    console.log();
+    console.log(chalk.dim(`┌─ ${label} ─────────────────────────────────`));
+    console.log(chalk.dim('│'));
+  }
+}
+
+/**
+ * Write streaming text chunk
+ * @param text - Text chunk to write
+ */
+export function streamText(text: string): void {
+  if (!streamingMode) return;
+
+  streamBuffer += text;
+
+  // Write text with line prefix for multi-line content
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (i === lines.length - 1 && lines[i] === '') {
+      // Don't print empty trailing line
+      continue;
+    }
+    if (i > 0) {
+      // New line - add prefix
+      process.stdout.write('\n' + chalk.dim('│ '));
+    }
+    process.stdout.write(chalk.white(lines[i]));
+  }
+}
+
+/**
+ * End streaming mode
+ */
+export function endStreaming(): void {
+  if (!streamingMode) return;
+
+  streamingMode = false;
+  console.log();
+  console.log(chalk.dim('│'));
+  console.log(chalk.dim('└──────────────────────────────────────────────'));
+  console.log();
+}
+
+/**
+ * Get the full streamed content
+ */
+export function getStreamBuffer(): string {
+  return streamBuffer;
+}
+
+/**
+ * Check if streaming is active
+ */
+export function isStreaming(): boolean {
+  return streamingMode;
+}
+
+/**
+ * Create a stream callback function for the orchestrator
+ * @param label - Optional label for the stream
+ * @returns Callback function
+ */
+export function createStreamCallback(label?: string): (text: string) => void {
+  let started = false;
+  return (text: string) => {
+    if (!started) {
+      startStreaming(label);
+      started = true;
+    }
+    streamText(text);
+  };
+}
+
 export default {
   debug,
   info,
@@ -121,4 +204,10 @@ export default {
   setVerbose,
   isVerbose,
   createLogger,
+  startStreaming,
+  streamText,
+  endStreaming,
+  getStreamBuffer,
+  isStreaming,
+  createStreamCallback,
 };

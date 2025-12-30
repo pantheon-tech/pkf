@@ -58,6 +58,34 @@ export declare function createLogger(prefix: string): {
     error: (msg: string, ...args: unknown[]) => void;
     step: (msg: string) => void;
 };
+/**
+ * Start streaming mode - shows agent output as it arrives
+ * @param label - Label to show before streaming content
+ */
+export declare function startStreaming(label?: string): void;
+/**
+ * Write streaming text chunk
+ * @param text - Text chunk to write
+ */
+export declare function streamText(text: string): void;
+/**
+ * End streaming mode
+ */
+export declare function endStreaming(): void;
+/**
+ * Get the full streamed content
+ */
+export declare function getStreamBuffer(): string;
+/**
+ * Check if streaming is active
+ */
+export declare function isStreaming(): boolean;
+/**
+ * Create a stream callback function for the orchestrator
+ * @param label - Optional label for the stream
+ * @returns Callback function
+ */
+export declare function createStreamCallback(label?: string): (text: string) => void;
 declare const _default: {
     debug: typeof debug;
     info: typeof info;
@@ -71,6 +99,12 @@ declare const _default: {
     setVerbose: typeof setVerbose;
     isVerbose: typeof isVerbose;
     createLogger: typeof createLogger;
+    startStreaming: typeof startStreaming;
+    streamText: typeof streamText;
+    endStreaming: typeof endStreaming;
+    getStreamBuffer: typeof getStreamBuffer;
+    isStreaming: typeof isStreaming;
+    createStreamCallback: typeof createStreamCallback;
 };
 export default _default;
 //# sourceMappingURL=logger.d.ts.map

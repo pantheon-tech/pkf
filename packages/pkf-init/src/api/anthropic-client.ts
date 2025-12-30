@@ -203,13 +203,98 @@ export class AnthropicClient {
 
   /**
    * Stream a message using the Anthropic API
-   * @param _params - Message creation parameters
-   * @yields Stream events with text or completion data
-   * @throws Error - Streaming not yet implemented
+   * @param params - Message creation parameters
+   * @yields Stream events with text chunks and completion data
    */
-  async *streamMessage(_params: CreateMessageParams): AsyncGenerator<StreamEvent> {
-    throw new Error('Streaming not implemented');
-    // Yield is unreachable but required for TypeScript to recognize this as a generator
-    yield { type: 'done' };
+  async *streamMessage(params: CreateMessageParams): AsyncGenerator<StreamEvent> {
+    const { model, systemPrompt, messages, maxTokens = 4096, temperature = 0.7 } = params;
+
+    // Convert our message format to Anthropic format
+    const anthropicMessages: Anthropic.MessageParam[] = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const stream = this.client.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemPrompt,
+      messages: anthropicMessages,
+    });
+
+    // Process stream events
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        const delta = event.delta;
+        if ('text' in delta) {
+          yield { type: 'text', text: delta.text };
+        }
+      }
+    }
+
+    // Get final message for token counts
+    const finalMessage = await stream.finalMessage();
+
+    yield {
+      type: 'done',
+      inputTokens: finalMessage.usage.input_tokens,
+      outputTokens: finalMessage.usage.output_tokens,
+    };
+  }
+
+  /**
+   * Create a message with streaming, calling a callback for each text chunk
+   * @param params - Message creation parameters
+   * @param onText - Callback for each text chunk
+   * @returns Message result with content and token usage
+   */
+  async createMessageStreaming(
+    params: CreateMessageParams,
+    onText: (text: string) => void
+  ): Promise<MessageResult> {
+    const { model, systemPrompt, messages, maxTokens = 4096, temperature = 0.7 } = params;
+
+    // Convert our message format to Anthropic format
+    const anthropicMessages: Anthropic.MessageParam[] = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const stream = await this.retry(() =>
+      Promise.resolve(
+        this.client.messages.stream({
+          model,
+          max_tokens: maxTokens,
+          temperature,
+          system: systemPrompt,
+          messages: anthropicMessages,
+        })
+      )
+    );
+
+    let content = '';
+
+    // Process stream events
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        const delta = event.delta;
+        if ('text' in delta) {
+          content += delta.text;
+          onText(delta.text);
+        }
+      }
+    }
+
+    // Get final message for token counts
+    const finalMessage = await stream.finalMessage();
+
+    return {
+      content,
+      inputTokens: finalMessage.usage.input_tokens,
+      outputTokens: finalMessage.usage.output_tokens,
+      stopReason: finalMessage.stop_reason ?? 'unknown',
+      model: finalMessage.model,
+    };
   }
 }

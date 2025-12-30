@@ -8,6 +8,7 @@ import { glob } from 'glob';
 import * as yaml from 'js-yaml';
 import { WorkflowStage } from '../types/index.js';
 import * as logger from '../utils/logger.js';
+import { extractBlueprintSummary, displayBlueprintSummary, saveBlueprintToFile, } from '../utils/blueprint-summary.js';
 /**
  * Agent name for documentation analysis
  */
@@ -107,7 +108,22 @@ export class AnalysisStage {
                 };
             }
             logger.success('Blueprint validated successfully');
-            // Step 6: Interactive approval if enabled
+            // Step 6: Save blueprint to file and show summary
+            logger.step('Saving blueprint to file...');
+            const blueprintPath = await saveBlueprintToFile(blueprintYaml, this.config.rootDir);
+            // End streaming if active
+            if (logger.isStreaming()) {
+                logger.endStreaming();
+            }
+            // Extract and display summary
+            const summary = extractBlueprintSummary(blueprintYaml);
+            if (summary) {
+                displayBlueprintSummary(summary, blueprintPath);
+            }
+            else {
+                logger.info(`Full blueprint saved to: ${blueprintPath}`);
+            }
+            // Step 7: Interactive approval if enabled
             let finalBlueprint = blueprintYaml;
             const approval = await this.interactive.approveBlueprint(blueprintYaml);
             if (!approval.approved) {
@@ -124,8 +140,10 @@ export class AnalysisStage {
             if (approval.edited) {
                 logger.info('Using user-edited blueprint');
                 finalBlueprint = approval.edited;
+                // Update the saved file with edits
+                await saveBlueprintToFile(finalBlueprint, this.config.rootDir);
             }
-            // Step 7: Save state with checkpoint
+            // Step 8: Save state with checkpoint
             logger.step('Saving checkpoint...');
             await this.stateManager.checkpoint(WorkflowStage.ANALYZING, 'Analysis stage completed', {
                 blueprint: finalBlueprint,

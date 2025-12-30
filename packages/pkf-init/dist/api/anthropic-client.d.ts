@@ -81,10 +81,16 @@ export declare class AnthropicClient {
     createMessage(params: CreateMessageParams): Promise<MessageResult>;
     /**
      * Stream a message using the Anthropic API
-     * @param _params - Message creation parameters
-     * @yields Stream events with text or completion data
-     * @throws Error - Streaming not yet implemented
+     * @param params - Message creation parameters
+     * @yields Stream events with text chunks and completion data
      */
-    streamMessage(_params: CreateMessageParams): AsyncGenerator<StreamEvent>;
+    streamMessage(params: CreateMessageParams): AsyncGenerator<StreamEvent>;
+    /**
+     * Create a message with streaming, calling a callback for each text chunk
+     * @param params - Message creation parameters
+     * @param onText - Callback for each text chunk
+     * @returns Message result with content and token usage
+     */
+    createMessageStreaming(params: CreateMessageParams, onText: (text: string) => void): Promise<MessageResult>;
 }
 //# sourceMappingURL=anthropic-client.d.ts.map

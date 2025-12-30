@@ -16,12 +16,15 @@ const DEFAULT_MAX_ITERATIONS = 5;
  * - Single agent task execution
  * - Multi-turn agent conversations with convergence detection
  * - Token estimation and cost tracking
+ * - Streaming output support
  */
 export class AgentOrchestrator {
     client;
     rateLimiter;
     costTracker;
     agentsDir;
+    streaming;
+    onStream;
     /**
      * Create a new AgentOrchestrator
      *
@@ -35,6 +38,16 @@ export class AgentOrchestrator {
         this.rateLimiter = rateLimiter;
         this.costTracker = costTracker;
         this.agentsDir = options?.agentsDir;
+        this.streaming = options?.streaming ?? false;
+        this.onStream = options?.onStream;
+    }
+    /**
+     * Set the streaming callback
+     * @param callback - Function to call with each text chunk
+     */
+    setStreamCallback(callback) {
+        this.onStream = callback;
+        this.streaming = callback !== undefined;
     }
     /**
      * Execute an agent with given messages
@@ -51,14 +64,26 @@ export class AgentOrchestrator {
             const estimatedTokens = TokenEstimator.estimateAgentExecution(agentConfig.instructions, messages, agentConfig.maxTokens);
             // Acquire rate limit
             await this.rateLimiter.acquire(estimatedTokens);
-            // Call the Anthropic API
-            const result = await this.client.createMessage({
-                model: agentConfig.model,
-                systemPrompt: agentConfig.instructions,
-                messages,
-                maxTokens: agentConfig.maxTokens,
-                temperature: agentConfig.temperature,
-            });
+            // Call the Anthropic API (with or without streaming)
+            let result;
+            if (this.streaming && this.onStream) {
+                result = await this.client.createMessageStreaming({
+                    model: agentConfig.model,
+                    systemPrompt: agentConfig.instructions,
+                    messages,
+                    maxTokens: agentConfig.maxTokens,
+                    temperature: agentConfig.temperature,
+                }, this.onStream);
+            }
+            else {
+                result = await this.client.createMessage({
+                    model: agentConfig.model,
+                    systemPrompt: agentConfig.instructions,
+                    messages,
+                    maxTokens: agentConfig.maxTokens,
+                    temperature: agentConfig.temperature,
+                });
+            }
             // Record cost
             const cost = this.costTracker.recordUsage(agentConfig.model, result.inputTokens, result.outputTokens);
             return {

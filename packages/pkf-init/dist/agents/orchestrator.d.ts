@@ -7,11 +7,19 @@ import type { RateLimiter } from '../api/rate-limiter.js';
 import type { CostTracker } from '../utils/cost-tracker.js';
 import type { AgentMessage, AgentResult } from '../types/index.js';
 /**
+ * Callback for streaming text output
+ */
+export type StreamCallback = (text: string) => void;
+/**
  * Options for the AgentOrchestrator
  */
 export interface AgentOrchestratorOptions {
     /** Directory containing agent markdown files */
     agentsDir?: string;
+    /** Enable streaming output */
+    streaming?: boolean;
+    /** Callback for streaming text chunks */
+    onStream?: StreamCallback;
 }
 /**
  * AgentOrchestrator handles execution and coordination of AI agents
@@ -20,12 +28,15 @@ export interface AgentOrchestratorOptions {
  * - Single agent task execution
  * - Multi-turn agent conversations with convergence detection
  * - Token estimation and cost tracking
+ * - Streaming output support
  */
 export declare class AgentOrchestrator {
     private client;
     private rateLimiter;
     private costTracker;
     private agentsDir?;
+    private streaming;
+    private onStream?;
     /**
      * Create a new AgentOrchestrator
      *
@@ -35,6 +46,11 @@ export declare class AgentOrchestrator {
      * @param options - Optional configuration
      */
     constructor(client: AnthropicClient, rateLimiter: RateLimiter, costTracker: CostTracker, options?: AgentOrchestratorOptions);
+    /**
+     * Set the streaming callback
+     * @param callback - Function to call with each text chunk
+     */
+    setStreamCallback(callback: StreamCallback | undefined): void;
     /**
      * Execute an agent with given messages
      *

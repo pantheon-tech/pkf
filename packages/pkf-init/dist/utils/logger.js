@@ -4,6 +4,8 @@
  */
 import chalk from 'chalk';
 let verboseMode = false;
+let streamingMode = false;
+let streamBuffer = '';
 /**
  * Set verbose mode
  */
@@ -91,6 +93,80 @@ export function createLogger(prefix) {
         step: (msg) => step(`[${prefix}] ${msg}`),
     };
 }
+/**
+ * Start streaming mode - shows agent output as it arrives
+ * @param label - Label to show before streaming content
+ */
+export function startStreaming(label) {
+    streamingMode = true;
+    streamBuffer = '';
+    if (label) {
+        console.log();
+        console.log(chalk.dim(`┌─ ${label} ─────────────────────────────────`));
+        console.log(chalk.dim('│'));
+    }
+}
+/**
+ * Write streaming text chunk
+ * @param text - Text chunk to write
+ */
+export function streamText(text) {
+    if (!streamingMode)
+        return;
+    streamBuffer += text;
+    // Write text with line prefix for multi-line content
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        if (i === lines.length - 1 && lines[i] === '') {
+            // Don't print empty trailing line
+            continue;
+        }
+        if (i > 0) {
+            // New line - add prefix
+            process.stdout.write('\n' + chalk.dim('│ '));
+        }
+        process.stdout.write(chalk.white(lines[i]));
+    }
+}
+/**
+ * End streaming mode
+ */
+export function endStreaming() {
+    if (!streamingMode)
+        return;
+    streamingMode = false;
+    console.log();
+    console.log(chalk.dim('│'));
+    console.log(chalk.dim('└──────────────────────────────────────────────'));
+    console.log();
+}
+/**
+ * Get the full streamed content
+ */
+export function getStreamBuffer() {
+    return streamBuffer;
+}
+/**
+ * Check if streaming is active
+ */
+export function isStreaming() {
+    return streamingMode;
+}
+/**
+ * Create a stream callback function for the orchestrator
+ * @param label - Optional label for the stream
+ * @returns Callback function
+ */
+export function createStreamCallback(label) {
+    let started = false;
+    return (text) => {
+        if (!started) {
+            startStreaming(label);
+            started = true;
+        }
+        streamText(text);
+    };
+}
 export default {
     debug,
     info,
@@ -104,5 +180,11 @@ export default {
     setVerbose,
     isVerbose,
     createLogger,
+    startStreaming,
+    streamText,
+    endStreaming,
+    getStreamBuffer,
+    isStreaming,
+    createStreamCallback,
 };
 //# sourceMappingURL=logger.js.map

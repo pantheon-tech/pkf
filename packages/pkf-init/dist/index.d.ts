@@ -11,6 +11,7 @@ export { TokenEstimator } from './utils/token-estimator.js';
 export { TimeEstimator, DryRunReport } from './utils/time-estimator.js';
 export { Interactive } from './utils/interactive.js';
 export * as logger from './utils/logger.js';
+export { extractBlueprintSummary, displayBlueprintSummary, saveBlueprintToFile, type BlueprintSummary, } from './utils/blueprint-summary.js';
 export { AnthropicClient } from './api/anthropic-client.js';
 export type { CreateMessageParams, MessageResult, StreamEvent } from './api/anthropic-client.js';
 export { RateLimiter } from './api/rate-limiter.js';

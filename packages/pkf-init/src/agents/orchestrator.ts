@@ -12,11 +12,20 @@ import { loadAgentConfig } from './agent-loader.js';
 import { detectConvergence } from './convergence.js';
 
 /**
+ * Callback for streaming text output
+ */
+export type StreamCallback = (text: string) => void;
+
+/**
  * Options for the AgentOrchestrator
  */
 export interface AgentOrchestratorOptions {
   /** Directory containing agent markdown files */
   agentsDir?: string;
+  /** Enable streaming output */
+  streaming?: boolean;
+  /** Callback for streaming text chunks */
+  onStream?: StreamCallback;
 }
 
 /**
@@ -31,12 +40,15 @@ const DEFAULT_MAX_ITERATIONS = 5;
  * - Single agent task execution
  * - Multi-turn agent conversations with convergence detection
  * - Token estimation and cost tracking
+ * - Streaming output support
  */
 export class AgentOrchestrator {
   private client: AnthropicClient;
   private rateLimiter: RateLimiter;
   private costTracker: CostTracker;
   private agentsDir?: string;
+  private streaming: boolean;
+  private onStream?: StreamCallback;
 
   /**
    * Create a new AgentOrchestrator
@@ -56,6 +68,17 @@ export class AgentOrchestrator {
     this.rateLimiter = rateLimiter;
     this.costTracker = costTracker;
     this.agentsDir = options?.agentsDir;
+    this.streaming = options?.streaming ?? false;
+    this.onStream = options?.onStream;
+  }
+
+  /**
+   * Set the streaming callback
+   * @param callback - Function to call with each text chunk
+   */
+  setStreamCallback(callback: StreamCallback | undefined): void {
+    this.onStream = callback;
+    this.streaming = callback !== undefined;
   }
 
   /**
@@ -80,14 +103,28 @@ export class AgentOrchestrator {
       // Acquire rate limit
       await this.rateLimiter.acquire(estimatedTokens);
 
-      // Call the Anthropic API
-      const result = await this.client.createMessage({
-        model: agentConfig.model,
-        systemPrompt: agentConfig.instructions,
-        messages,
-        maxTokens: agentConfig.maxTokens,
-        temperature: agentConfig.temperature,
-      });
+      // Call the Anthropic API (with or without streaming)
+      let result;
+      if (this.streaming && this.onStream) {
+        result = await this.client.createMessageStreaming(
+          {
+            model: agentConfig.model,
+            systemPrompt: agentConfig.instructions,
+            messages,
+            maxTokens: agentConfig.maxTokens,
+            temperature: agentConfig.temperature,
+          },
+          this.onStream
+        );
+      } else {
+        result = await this.client.createMessage({
+          model: agentConfig.model,
+          systemPrompt: agentConfig.instructions,
+          messages,
+          maxTokens: agentConfig.maxTokens,
+          temperature: agentConfig.temperature,
+        });
+      }
 
       // Record cost
       const cost = this.costTracker.recordUsage(
