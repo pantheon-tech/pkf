@@ -218,38 +218,69 @@ export class AnalysisStage {
   /**
    * Scan repository for documentation files
    *
+   * Scans recursively from project root for all markdown files,
+   * excluding common non-documentation directories.
+   *
    * @returns List of discovered documentation files with metadata
    */
   private async scanRepository(): Promise<DiscoveredDoc[]> {
     const docs: DiscoveredDoc[] = [];
+    const seenPaths = new Set<string>();
 
-    // Scan markdown files in docs directory
-    const docsGlob = path.join(this.config.docsDir, '**/*.md');
-    const docsFiles = await glob(docsGlob, { nodir: true });
+    // Directories to exclude from scanning
+    const excludeDirs = [
+      'node_modules',
+      '.git',
+      '.next',
+      '.nuxt',
+      'dist',
+      'build',
+      'coverage',
+      '.cache',
+      '.turbo',
+      'vendor',
+      '__pycache__',
+      '.venv',
+      'venv',
+    ];
 
-    for (const filePath of docsFiles) {
+    // Build ignore patterns for glob
+    const ignorePatterns = excludeDirs.map((dir) => `**/${dir}/**`);
+
+    // Scan ALL markdown files in the entire repository
+    const allMdGlob = path.join(this.config.rootDir, '**/*.md');
+    const allFiles = await glob(allMdGlob, {
+      nodir: true,
+      ignore: ignorePatterns,
+    });
+
+    for (const filePath of allFiles) {
+      if (seenPaths.has(filePath)) continue;
+      seenPaths.add(filePath);
+
       const doc = await this.createDiscoveredDoc(filePath);
       if (doc) {
         docs.push(doc);
       }
     }
 
-    // Check for root-level documentation files
-    const rootFiles = ['README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE.md'];
-    for (const fileName of rootFiles) {
-      const filePath = path.join(this.config.rootDir, fileName);
-      try {
-        await fs.access(filePath);
+    // Also check for other documentation formats
+    const otherFormats = ['**/*.mdx', '**/*.rst', '**/*.txt'];
+    for (const pattern of otherFormats) {
+      const formatGlob = path.join(this.config.rootDir, pattern);
+      const formatFiles = await glob(formatGlob, {
+        nodir: true,
+        ignore: ignorePatterns,
+      });
+
+      for (const filePath of formatFiles) {
+        if (seenPaths.has(filePath)) continue;
+        seenPaths.add(filePath);
+
         const doc = await this.createDiscoveredDoc(filePath);
         if (doc) {
-          // Avoid duplicates if docs dir is at root
-          const exists = docs.some((d) => d.path === doc.path);
-          if (!exists) {
-            docs.push(doc);
-          }
+          docs.push(doc);
         }
-      } catch {
-        // File doesn't exist, skip
       }
     }
 

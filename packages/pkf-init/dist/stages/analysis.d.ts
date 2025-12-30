@@ -66,6 +66,9 @@ export declare class AnalysisStage {
     /**
      * Scan repository for documentation files
      *
+     * Scans recursively from project root for all markdown files,
+     * excluding common non-documentation directories.
+     *
      * @returns List of discovered documentation files with metadata
      */
     private scanRepository;
