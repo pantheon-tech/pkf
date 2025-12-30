@@ -3,7 +3,7 @@
  * Uses agent conversation to design PKF schemas based on the blueprint.
  */
 import { WorkflowStage } from '../types/index.js';
-import { parse as parseYaml } from 'yaml';
+import * as jsYaml from 'js-yaml';
 // ============================================================================
 // PKF Schema DSL Reference
 // ============================================================================
@@ -345,7 +345,7 @@ Begin the design discussion. Review the blueprint and propose an initial schema 
         const warnings = [];
         try {
             // Parse YAML
-            const parsed = parseYaml(yaml);
+            const parsed = jsYaml.load(yaml);
             // Check for required top-level keys
             if (!parsed.version) {
                 errors.push('Missing required "version" field');

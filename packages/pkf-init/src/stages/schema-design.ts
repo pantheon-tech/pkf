@@ -7,7 +7,7 @@ import type { AgentOrchestrator } from '../agents/orchestrator.js';
 import type { WorkflowStateManager } from '../state/workflow-state.js';
 import type { Interactive } from '../utils/interactive.js';
 import { WorkflowStage, type DesignState, type LoadedConfig } from '../types/index.js';
-import { parse as parseYaml } from 'yaml';
+import * as jsYaml from 'js-yaml';
 
 // ============================================================================
 // Types
@@ -448,7 +448,7 @@ Begin the design discussion. Review the blueprint and propose an initial schema 
 
     try {
       // Parse YAML
-      const parsed = parseYaml(yaml) as Record<string, unknown>;
+      const parsed = jsYaml.load(yaml) as Record<string, unknown>;
 
       // Check for required top-level keys
       if (!parsed.version) {
