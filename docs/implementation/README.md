@@ -4,7 +4,7 @@
 
 ## Overview
 
-This directory contains actionable implementation plans for building PKF components. Each plan is derived from the [PKF Architecture Specification](/mnt/devbox/skip/project/pkf/docs/architecture/PKF-ARCHITECTURE.md) and provides:
+This directory contains actionable implementation plans for building PKF components. Each plan is derived from the [PKF Architecture Specification](../architecture/active/PKF-ARCHITECTURE.md) and provides:
 
 - Task decomposition with unique IDs
 - Dependency analysis and ordering
@@ -12,11 +12,28 @@ This directory contains actionable implementation plans for building PKF compone
 - Acceptance criteria for each task
 - Integration test requirements
 
-## Workstreams
+## Lifecycle States
+
+| Directory | Description |
+|-----------|-------------|
+| [active/](active/) | Current implementation plans |
+| [completed/](completed/) | Finished implementation plans |
+| [tracking/](tracking/) | Workstream-level tracking |
+
+## Active Plans
+
+### Master Plan
+
+- [PKF-MASTER-IMPLEMENTATION-PLAN.md](active/PKF-MASTER-IMPLEMENTATION-PLAN.md) - Coordinates all workstreams
+
+### Workstreams
 
 | Workstream | Status | Tasks | Description |
 |------------|--------|-------|-------------|
-| [WS-ENF: Enforcement Layer](WS-ENFORCEMENT-LAYER.md) | Draft | 7 | Pre-commit hooks, CI/CD, validation tooling |
+| [WS-PKF: pkf-processor](active/WS-001-PKF-PROCESSOR.md) | Active | 11 | Core configuration processor |
+| [WS-DSL: Schema DSL](active/WS-001-SCHEMA-DSL-SYSTEM.md) | Active | 8 | Schema DSL compiler |
+| [WS-TPL: Template System](active/WS-001-TEMPLATE-SYSTEM.md) | Active | 8 | Template generation |
+| [WS-ENF: Enforcement Layer](active/WS-ENFORCEMENT-LAYER.md) | Active | 7 | Pre-commit hooks, CI/CD, validation tooling |
 
 ## Task ID Format
 
@@ -39,10 +56,10 @@ Example: `WS-ENF-T001` = Enforcement Layer, Task 001
 
 ## See Also
 
-- [PKF Architecture](../architecture/PKF-ARCHITECTURE.md) - Source specifications
+- [PKF Architecture](../architecture/active/PKF-ARCHITECTURE.md) - Source specifications
 - [TODO Register](../registers/TODO.md) - Task tracking
 - [Implementation Guide](../guides/IMPLEMENTATION-GUIDE.md) - Setup instructions
 
 ---
 
-**Last Updated:** 2025-12-27
+**Last Updated:** 2025-12-29

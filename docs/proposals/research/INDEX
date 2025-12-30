@@ -1,0 +1,4 @@
+# proposals/research INDEX
+# Research and analysis documents
+
+PKF-ENFORCEMENT-RESEARCH.md: Comprehensive research on preventing documentation drift through enforcement mechanisms. Analyzes industry approaches including layered validation (structure → prose → content → contracts), CI/CD gates vs pre-commit hooks, schema-first generation patterns, and AI-assisted drift detection. Recommends transforming PKF from specification to CLI toolchain with commands like pkf init, pkf lint, pkf validate. Includes tooling landscape analysis (markdownlint, Vale, Spectral, log4brains) and implementation roadmap.

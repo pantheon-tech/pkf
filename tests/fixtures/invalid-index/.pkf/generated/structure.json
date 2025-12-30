@@ -1,0 +1,41 @@
+{
+  "$schema": "https://pkf.dev/schemas/structure.schema.json",
+  "version": "1.0.0",
+  "generated": "2025-12-30T03:02:20.405Z",
+  "root": {
+    "type": "directory",
+    "required": true,
+    "children": {
+      "section-a": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          }
+        }
+      },
+      "section-b": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          }
+        }
+      },
+      "section-c": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          }
+        }
+      }
+    }
+  }
+}

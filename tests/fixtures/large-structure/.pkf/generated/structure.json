@@ -1,0 +1,176 @@
+{
+  "$schema": "https://pkf.dev/schemas/structure.schema.json",
+  "version": "1.0.0",
+  "generated": "2025-12-30T03:02:20.902Z",
+  "root": {
+    "type": "directory",
+    "required": true,
+    "children": {
+      "architecture": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          },
+          "active": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          },
+          "archived": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          }
+        }
+      },
+      "proposals": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          },
+          "draft": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          },
+          "active": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          },
+          "archived": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          }
+        }
+      },
+      "implementation": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          },
+          "active": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          },
+          "completed": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          }
+        }
+      },
+      "guides": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          }
+        }
+      },
+      "framework": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          },
+          "specifications": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          },
+          "schemas": {
+            "type": "directory",
+            "required": true,
+            "children": {
+              "README.md": {
+                "type": "file",
+                "required": true
+              }
+            }
+          }
+        }
+      },
+      "registers": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          },
+          "TODO.md": {
+            "type": "file",
+            "required": true,
+            "schema": "todo-item"
+          },
+          "ISSUES.md": {
+            "type": "file",
+            "required": true,
+            "schema": "issue-item"
+          },
+          "CHANGELOG.md": {
+            "type": "file",
+            "required": true,
+            "schema": "changelog-entry"
+          }
+        }
+      }
+    }
+  }
+}

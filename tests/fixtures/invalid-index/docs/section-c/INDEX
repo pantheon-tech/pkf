@@ -1,0 +1,6 @@
+# section-c INDEX
+# Lists files that don't exist
+
+ghost-file.md: This file does not exist.
+phantom.md: Neither does this one.
+actual-file.md: This one actually exists.

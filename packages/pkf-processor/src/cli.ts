@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { buildCommand } from './commands/index.js';
+import { buildCommand, validateStructureCommand } from './commands/index.js';
 
 const program = new Command();
 
@@ -20,9 +20,6 @@ program
   .command('validate-structure')
   .description('Validate directory structure against generated structure.json')
   .option('-s, --structure <path>', 'Path to structure.json', '.pkf/generated/structure.json')
-  .action(() => {
-    console.log('Structure validation not yet implemented');
-    process.exit(0);
-  });
+  .action(validateStructureCommand);
 
 program.parse();

@@ -1,0 +1,16 @@
+version: "1.0.0"
+
+project:
+  name: UnexpectedFileTest
+  description: Test fixture with unexpected files
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+
+  guides:
+    _type: section
+    _readme: true

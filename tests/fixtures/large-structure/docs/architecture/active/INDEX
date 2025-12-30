@@ -1,0 +1,5 @@
+# architecture/active INDEX
+# Current architecture documents
+
+SYSTEM-ARCHITECTURE.md: Main system architecture document describing components and interactions.
+API-DESIGN.md: API design patterns and conventions.

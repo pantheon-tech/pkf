@@ -1,0 +1,8 @@
+# proposals INDEX
+# Test proposals with frontmatter issues
+
+valid-proposal.md: A proposal with correct frontmatter format.
+invalid-yaml.md: A proposal with malformed YAML syntax.
+missing-required.md: A proposal missing required frontmatter fields.
+invalid-date.md: A proposal with invalid date formats.
+unclosed-frontmatter.md: A proposal with unclosed frontmatter block.

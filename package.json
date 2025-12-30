@@ -7,21 +7,27 @@
   "scripts": {
     "pkf:build": "node ./packages/pkf-processor/dist/cli.js build",
     "pkf:validate": "npm-run-all pkf:validate:*",
+    "pkf:validate:config": "ajv validate -s schemas/pkf-config.schema.json -d pkf.config.yaml --spec=draft7 --strict=false",
     "pkf:validate:structure": "node ./packages/pkf-processor/dist/cli.js validate-structure",
     "pkf:validate:frontmatter": "remark docs/ --frail --quiet",
     "pkf:validate:links": "remark docs/ --use remark-validate-links --frail --quiet",
-    "pkf:validate:prose": "vale docs/ || true",
+    "pkf:validate:prose": "./node_modules/.bin/vale docs/ || true",
+    "pkf:validate:templates": "node scripts/validate-templates.js",
     "prepare": "husky",
-    "build": "npm run pkf:build"
+    "build": "npm run pkf:build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
+    "ajv-cli": "^5.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.11",
     "npm-run-all2": "^7.0.2",
     "remark-cli": "^12.0.1",
     "remark-frontmatter": "^5.0.0",
     "remark-lint-frontmatter-schema": "^3.15.4",
-    "remark-validate-links": "^13.0.1"
+    "remark-validate-links": "^13.0.1",
+    "vitest": "^4.0.16"
   },
   "lint-staged": {
     "pkf.config.yaml": "npm run pkf:build",

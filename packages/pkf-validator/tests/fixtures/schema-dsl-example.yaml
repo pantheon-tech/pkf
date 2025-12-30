@@ -1,0 +1,131 @@
+version: "1.0"
+
+schemas:
+  # Base schema for all documents
+  base-document:
+    _description: "Base schema for PKF documents"
+    _version: "1.0.0"
+    properties:
+      type:
+        type: string
+        required: true
+        description: "Document type identifier"
+      title:
+        type: string
+        required: true
+        description: "Document title"
+        minLength: 1
+        maxLength: 200
+      created:
+        type: date
+        required: true
+        description: "Creation date"
+      updated:
+        type: date
+        description: "Last update date"
+      version:
+        type: string
+        description: "Document version"
+        pattern: "^\\d+\\.\\d+\\.\\d+$"
+
+  # TODO item schema extending base
+  todo-item:
+    _extends: base-document
+    _description: "Schema for TODO register items"
+    _examples:
+      - docs/registers/TODO.md
+    properties:
+      id:
+        type: string
+        required: true
+        description: "Unique identifier (e.g., TODO-001)"
+        pattern: "^TODO-\\d{3}$"
+      status:
+        type: string
+        required: true
+        description: "Current status of the TODO item"
+        enum:
+          - pending
+          - in-progress
+          - completed
+          - blocked
+      priority:
+        type: string
+        required: true
+        description: "Priority level"
+        enum:
+          - critical
+          - high
+          - medium
+          - low
+      assignee:
+        type: string
+        description: "Person assigned to this task"
+      labels:
+        type: array
+        description: "Labels/tags for categorization"
+        items:
+          type: string
+        minItems: 0
+        maxItems: 10
+        uniqueItems: true
+      due_date:
+        type: date
+        description: "Due date for the task"
+      estimated_hours:
+        type: number
+        description: "Estimated hours to complete"
+        minimum: 0
+        maximum: 1000
+
+  # Issue item schema extending base
+  issue-item:
+    _extends: base-document
+    _description: "Schema for ISSUE register items"
+    _deprecated: false
+    properties:
+      id:
+        type: string
+        required: true
+        description: "Unique identifier (e.g., ISSUE-001)"
+        pattern: "^ISSUE-\\d{3}$"
+      status:
+        type: string
+        required: true
+        enum:
+          - open
+          - investigating
+          - in-progress
+          - resolved
+          - closed
+      severity:
+        type: string
+        required: true
+        enum:
+          - critical
+          - high
+          - medium
+          - low
+      is_regression:
+        type: boolean
+        description: "Whether this is a regression"
+
+  # Simple schema without inheritance
+  simple-note:
+    _description: "Simple note schema"
+    properties:
+      content:
+        type: string
+        required: true
+        description: "Note content"
+      author:
+        type: string
+        description: "Note author"
+      tags:
+        type: array
+        items:
+          type: string
+          enum:
+            - important
+            - reminder
+            - idea

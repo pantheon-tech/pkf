@@ -5,7 +5,7 @@
  *
  * @module template/frontmatter
  */
-import { stringify as stringifyYaml } from 'yaml';
+import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 import type { FrontmatterConfig, TemplateDefinition } from './schema.js';
 import type { TemplateVariables } from './variables.js';
 import type { Result } from '../types.js';
@@ -118,8 +118,7 @@ export function extractFrontmatter(
   const body = match[2] ?? '';
 
   try {
-    const { parse } = require('yaml');
-    const frontmatter = parse(yamlContent) as Record<string, unknown>;
+    const frontmatter = parseYaml(yamlContent) as Record<string, unknown>;
     return ok({ frontmatter, body });
   } catch {
     return err({

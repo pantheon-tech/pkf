@@ -1,0 +1,31 @@
+# Invalid PKF Configuration for Testing
+# Missing required 'version' field and has invalid project.version format
+
+project:
+  name: "test-project"
+  version: "not-a-valid-semver"
+  description: "A test project with invalid config"
+
+structure:
+  docsDir: "nonexistent-docs"
+  registersDir: "nonexistent/registers"
+
+registers:
+  idPrefix:
+    todo: "invalid lowercase"
+    issue: "ISSUE"
+    proposal: "ISSUE"  # duplicate prefix
+
+proposals:
+  enabled: true
+  ranges:
+    architecture:
+      min: 100
+      max: 50  # invalid: min >= max
+    features:
+      min: 50
+      max: 100
+    # overlapping range with features
+    core:
+      min: 75
+      max: 125

@@ -1,4 +1,4 @@
-import type { SchemasFile, DslSchemaDefinition, JsonSchema, JsonSchemaProperty } from './dsl.schema.js';
+import type { SchemasFile, JsonSchema, JsonSchemaProperty } from './dsl.schema.js';
 import { getInheritanceChain } from './dsl-parser.js';
 import {
   transformProperties,
@@ -50,8 +50,6 @@ export function generateSchema(
   schemas: SchemasFile,
   options: GenerationOptions = {}
 ): Result<JsonSchema, ProcessorError[]> {
-  const errors: ProcessorError[] = [];
-
   // Get inheritance chain
   const chainResult = getInheritanceChain(schemas, schemaName);
   if (!chainResult.success) {

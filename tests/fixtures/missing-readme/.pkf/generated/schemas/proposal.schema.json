@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "proposal",
+  "description": "PKF proposal document schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date"
+    },
+    "author": {
+      "type": "string",
+      "description": "Document author"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Brief proposal summary"
+    },
+    "motivation": {
+      "type": "string",
+      "description": "Why this proposal is needed"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived",
+        "rejected"
+      ],
+      "description": "Document lifecycle status"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^P-\\d{2}$",
+      "description": "Unique identifier with prefix P"
+    }
+  },
+  "required": [
+    "title",
+    "created",
+    "status",
+    "id"
+  ]
+}

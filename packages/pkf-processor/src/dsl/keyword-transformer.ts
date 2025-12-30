@@ -1,4 +1,4 @@
-import type { DslProperty, DslSchemaDefinition, JsonSchemaProperty, IdConfig } from './dsl.schema.js';
+import type { DslProperty, JsonSchemaProperty, IdConfig } from './dsl.schema.js';
 
 /**
  * Transform DSL type to JSON Schema type.

@@ -1,0 +1,8 @@
+# proposals/active INDEX
+# Approved and in-progress proposals
+
+PKF-AI-INIT-ARCHITECTURE-v1.1.md: Revised architecture for AI-assisted PKF initialization (score 9.25/10). Defines the complete system including multi-stage workflow with agent orchestration, Phase 0 prerequisites (pkf-validator), rate limiting strategy with token bucket algorithm, security considerations for API key handling, and detailed implementation algorithms for convergence detection and token estimation. This is the authoritative architecture document for pkf-init.
+
+PKF-AI-INIT-IMPLEMENTATION-PLAN.md: Comprehensive 6-phase implementation plan for pkf-init with 34 tasks across workstreams. Includes detailed test fixtures for 5 repository types (empty, readme-only, partial-docs, complete-docs, large-repo), integration test matrix with 25 test cases, risk management matrix, and success criteria. Phase 0 (pkf-validator) is complete with 214 tests passing.
+
+PKF-PEER-REVIEW-FOLLOWUP.md: Final peer review confirming all critical and major issues from PKF-REVIEW-001 have been resolved. Approves PKF Architecture v1.0.1 for implementation. Documents resolution quality for each issue and provides 3 minor observations for future consideration. Verdict: APPROVED FOR IMPLEMENTATION.

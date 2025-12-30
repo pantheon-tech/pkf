@@ -1,0 +1,6 @@
+# guides INDEX
+# User and developer guides
+
+getting-started.md: Quick start guide for new users.
+developer-guide.md: Detailed guide for developers.
+troubleshooting.md: Common issues and solutions.

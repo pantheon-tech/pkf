@@ -1,0 +1,4 @@
+# architecture/active INDEX
+# Current architecture documents
+
+PKF-ARCHITECTURE.md: Complete PKF Architecture Specification v1.0.1. Defines the declarative documentation framework including Compose Pattern (config mirrors structure), Component Type System (section, document, register, lifecycle-state), Schema System with DSL and JSON Schema generation, Template System with variable substitution, and Enforcement Architecture with three-layer validation. Also includes Filing Agent Protocol for AI-assisted document intake. Approved for implementation after peer review (PKF-REVIEW-002).

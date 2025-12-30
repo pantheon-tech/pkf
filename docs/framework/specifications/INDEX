@@ -1,0 +1,6 @@
+# framework/specifications INDEX
+# Core PKF framework specifications
+
+PKF-SPECIFICATION.md: Complete Project Knowledge Framework specification v1.0.0. Defines documentation hierarchy standards, register system (TODO, ISSUES, CHANGELOG), template system with placeholders, and JSON Schema validation requirements. This is the authoritative reference for implementing PKF in any project. Covers file naming conventions, frontmatter requirements, cross-referencing patterns, and AI agent integration guidelines.
+
+PKF-SCHEMA-DSL.md: Schema DSL specification for defining document schemas in human-friendly YAML. Documents the transformation rules from DSL keywords (extends, type:date, statuses, id.*) to JSON Schema draft-07. Includes inheritance resolution, conflict handling, and error reporting specifications. Used by pkf-processor to generate validation schemas.

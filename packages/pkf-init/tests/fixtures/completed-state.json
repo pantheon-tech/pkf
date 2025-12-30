@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "startedAt": "2025-01-15T10:00:00.000Z",
+  "updatedAt": "2025-01-15T11:00:00.000Z",
+  "currentStage": "completed",
+  "checkpoints": [
+    {
+      "stage": "not_started",
+      "timestamp": "2025-01-15T10:00:00.000Z",
+      "description": "Workflow started"
+    },
+    {
+      "stage": "completed",
+      "timestamp": "2025-01-15T11:00:00.000Z",
+      "description": "Workflow completed successfully"
+    }
+  ],
+  "apiCallCount": 10,
+  "totalCost": 1.50,
+  "totalTokens": 50000
+}

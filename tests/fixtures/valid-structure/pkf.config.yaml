@@ -1,0 +1,25 @@
+version: "1.0.0"
+
+project:
+  name: ValidStructureTest
+  description: Test fixture with valid structure
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+  _index: true
+
+  guides:
+    _type: section
+    _readme: true
+    _index: true
+
+  registers:
+    _type: section
+    _readme: true
+    TODO.md:
+      _type: register
+      _schema: todo-item

@@ -1,0 +1,4 @@
+# guides INDEX
+# User and developer guides
+
+IMPLEMENTATION-GUIDE.md: Step-by-step guide for implementing PKF in new or existing projects. Covers initial setup, directory structure creation, schema configuration, register initialization, template usage, and validation setup. Includes migration path for projects with existing documentation and troubleshooting section for common issues.

@@ -10,22 +10,111 @@ output:
 docs:
   _type: root
   _readme: true
+  _index: true
   _description: Documentation root
+
+  framework:
+    _type: section
+    _readme: true
+    _description: Core framework documentation
+    specifications:
+      _type: section
+      _index: true
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    schemas:
+      _type: section
+      _index: true
+      _description: Reference schemas
+    templates:
+      _type: section
+      _index: true
+      _description: Reference templates
 
   architecture:
     _type: section
     _readme: true
     _description: Architecture documentation
+    active:
+      _type: section
+      _index: true
+      _description: Current architecture documents
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    archived:
+      _type: section
+      _index: true
+      _description: Superseded architecture documents
+      _items:
+        _type: document
+        _schema: document-frontmatter
 
   proposals:
     _type: section
     _readme: true
     _description: Proposals and RFCs
-    _lifecycle: [draft, active, archived]
+    draft:
+      _type: section
+      _index: true
+      _description: Proposals in development
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    active:
+      _type: section
+      _index: true
+      _description: Approved and in-progress proposals
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    archived:
+      _type: section
+      _index: true
+      _description: Superseded or rejected proposals
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    research:
+      _type: section
+      _index: true
+      _description: Research and analysis documents
+      _items:
+        _type: document
+        _schema: document-frontmatter
+
+  implementation:
+    _type: section
+    _readme: true
+    _description: Implementation plans and workstreams
+    active:
+      _type: section
+      _index: true
+      _description: Current implementation plans
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    completed:
+      _type: section
+      _index: true
+      _description: Completed implementation plans
+      _items:
+        _type: document
+        _schema: document-frontmatter
+    tracking:
+      _type: section
+      _index: true
+      _description: Workstream-level tracking
+
+  guides:
+    _type: section
+    _readme: true
+    _index: true
+    _description: User and developer guides
     _items:
       _type: document
-      _schema: proposal
-      _naming: "P{nn}-*.md"
+      _schema: document-frontmatter
 
   registers:
     _type: section
@@ -37,8 +126,6 @@ docs:
     ISSUES.md:
       _type: register
       _schema: issue-item
-
-  implementation:
-    _type: section
-    _readme: true
-    _description: Implementation plans
+    CHANGELOG.md:
+      _type: register
+      _schema: changelog-entry

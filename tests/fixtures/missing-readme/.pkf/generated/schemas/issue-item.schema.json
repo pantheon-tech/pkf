@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "issue-item",
+  "description": "Issue register item schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "minor",
+        "major",
+        "critical",
+        "blocker"
+      ]
+    },
+    "reporter": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "investigating",
+        "resolved",
+        "wontfix"
+      ],
+      "description": "Document lifecycle status"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^ISSUE-\\d{3}$",
+      "description": "Unique identifier with prefix ISSUE"
+    }
+  },
+  "required": [
+    "title",
+    "status",
+    "id"
+  ]
+}

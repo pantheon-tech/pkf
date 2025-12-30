@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "todo-item",
+  "description": "TODO register item schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "assignee": {
+      "type": "string"
+    },
+    "due": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in-progress",
+        "completed",
+        "cancelled"
+      ],
+      "description": "Document lifecycle status"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^TODO-\\d{3}$",
+      "description": "Unique identifier with prefix TODO"
+    }
+  },
+  "required": [
+    "title",
+    "status",
+    "id"
+  ]
+}

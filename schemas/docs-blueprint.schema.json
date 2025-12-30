@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pkf.dev/schemas/docs-blueprint.schema.json",
+  "title": "Documentation Blueprint",
+  "description": "Schema for documentation analysis blueprint (pkf init Stage 1 output)",
+  "type": "object",
+  "required": ["analysis", "structure", "document_types", "gaps", "recommendations"],
+  "properties": {
+    "analysis": {
+      "type": "object",
+      "required": ["timestamp", "repository", "docs_found"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When analysis was performed"
+        },
+        "repository": {
+          "type": "string",
+          "description": "Repository path analyzed"
+        },
+        "docs_found": {
+          "type": "boolean",
+          "description": "Whether documentation was found"
+        },
+        "docs_path": {
+          "type": "string",
+          "description": "Path to documentation directory"
+        }
+      }
+    },
+    "structure": {
+      "type": "array",
+      "description": "Existing documentation structure",
+      "items": {
+        "type": "object",
+        "required": ["path", "type", "quality"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Relative path to document"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["readme", "architecture", "api-doc", "guide", "changelog", "register", "proposal", "other"],
+            "description": "Detected document type"
+          },
+          "quality": {
+            "type": "string",
+            "enum": ["excellent", "good", "needs-refactoring", "poor"],
+            "description": "Quality assessment"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Main sections in document"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["missing-frontmatter", "inconsistent-headings", "broken-links", "outdated-content", "incomplete-sections"]
+            },
+            "description": "Identified issues"
+          }
+        }
+      }
+    },
+    "document_types": {
+      "type": "array",
+      "description": "Identified document type patterns",
+      "items": {
+        "type": "object",
+        "required": ["type", "count", "pattern", "quality"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Document type name"
+          },
+          "count": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Number of documents of this type"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Glob pattern matching this type"
+          },
+          "quality": {
+            "type": "string",
+            "enum": ["excellent", "good", "mixed", "poor"],
+            "description": "Overall quality assessment"
+          }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "description": "Documentation gaps identified",
+      "items": {
+        "type": "object",
+        "required": ["type", "severity", "recommendation"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Type of gap"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"],
+            "description": "Gap severity"
+          },
+          "recommendation": {
+            "type": "string",
+            "description": "Suggested remediation"
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "object",
+      "required": ["schema_complexity", "estimated_document_types", "migration_effort"],
+      "properties": {
+        "schema_complexity": {
+          "type": "string",
+          "enum": ["simple", "medium", "complex"],
+          "description": "Recommended schema complexity"
+        },
+        "estimated_document_types": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Estimated number of schema types needed"
+        },
+        "migration_effort": {
+          "type": "string",
+          "enum": ["small", "medium", "large"],
+          "description": "Estimated migration effort"
+        },
+        "suggested_schemas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "properties"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Suggested schema name"
+              },
+              "properties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Suggested properties for schema"
+              }
+            }
+          },
+          "description": "Suggested schema definitions"
+        }
+      }
+    }
+  }
+}

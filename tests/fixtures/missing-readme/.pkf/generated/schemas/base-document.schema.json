@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "base-document",
+  "description": "Base schema for all PKF documents",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title"
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Creation date (YYYY-MM-DD)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date"
+    },
+    "author": {
+      "type": "string",
+      "description": "Document author"
+    }
+  },
+  "required": [
+    "title",
+    "created"
+  ]
+}

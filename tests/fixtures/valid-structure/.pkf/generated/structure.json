@@ -1,0 +1,36 @@
+{
+  "$schema": "https://pkf.dev/schemas/structure.schema.json",
+  "version": "1.0.0",
+  "generated": "2025-12-30T03:02:20.663Z",
+  "root": {
+    "type": "directory",
+    "required": true,
+    "children": {
+      "guides": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          }
+        }
+      },
+      "registers": {
+        "type": "directory",
+        "required": true,
+        "children": {
+          "README.md": {
+            "type": "file",
+            "required": true
+          },
+          "TODO.md": {
+            "type": "file",
+            "required": true,
+            "schema": "todo-item"
+          }
+        }
+      }
+    }
+  }
+}

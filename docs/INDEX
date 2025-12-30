@@ -1,0 +1,4 @@
+# docs INDEX
+# PKF Documentation root directory
+
+README.md: Documentation hub and entry point for PKF. Provides navigation to all documentation sections including framework specifications, guides, architecture, proposals, implementation plans, and registers.

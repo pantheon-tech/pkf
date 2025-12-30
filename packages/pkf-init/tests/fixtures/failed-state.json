@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "startedAt": "2025-01-15T10:00:00.000Z",
+  "updatedAt": "2025-01-15T10:45:00.000Z",
+  "currentStage": "failed",
+  "checkpoints": [
+    {
+      "stage": "not_started",
+      "timestamp": "2025-01-15T10:00:00.000Z",
+      "description": "Workflow started"
+    },
+    {
+      "stage": "failed",
+      "timestamp": "2025-01-15T10:45:00.000Z",
+      "description": "Workflow failed due to API error"
+    }
+  ],
+  "apiCallCount": 5,
+  "totalCost": 0.75,
+  "totalTokens": 25000
+}

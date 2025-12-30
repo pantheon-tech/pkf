@@ -1,0 +1,12 @@
+# implementation/active INDEX
+# Current implementation plans
+
+PKF-MASTER-IMPLEMENTATION-PLAN.md: Master coordination document for PKF implementation across 4 workstreams and 34 tasks. Provides cross-workstream dependency graph, parallelization strategy, risk matrix, and progress checkpoints. Estimated effort: 52-104 hours. Critical path: WS-PKF → WS-DSL → WS-ENF → WS-TPL.
+
+WS-001-PKF-PROCESSOR.md: Implementation plan for pkf-processor core module (WS-PKF). Transforms pkf.config.yaml into validation artifacts including structure.json, path-schema-map.json, and .remarkrc.generated.mjs. Contains 11 tasks covering YAML parsing, compose tree expansion, artifact generation, and CLI implementation. Dependencies: yaml, zod, fast-glob, ajv, commander, chalk.
+
+WS-001-SCHEMA-DSL-SYSTEM.md: Implementation plan for Schema DSL System (WS-DSL). Transforms human-friendly YAML schema definitions into JSON Schema draft-07. Covers DSL parser, keyword transformations (extends, type:date, statuses, id.*), inheritance resolution with conflict handling, and JSON Schema generation. Contains 8 tasks. Critical path component.
+
+WS-001-TEMPLATE-SYSTEM.md: Implementation plan for Template System (WS-TPL). Enables document scaffolding with variable substitution ({id}, {title}, {date}), escaping ({{id}} → literal), frontmatter injection, and body structure generation. Contains 8 tasks covering template parsing, variable system, and file output.
+
+WS-ENFORCEMENT-LAYER.md: Implementation plan for PKF Enforcement Layer (WS-ENF). Implements three-layer validation: IDE (VS Code extensions), pre-commit (husky + lint-staged), and CI/CD (GitHub Actions). Contains 7 tasks covering npm scripts, remark configuration, Vale prose linting, and structure validation commands.

@@ -1,0 +1,9 @@
+# guides INDEX
+# Guides with formatting issues
+
+broken-links.md: Document with broken internal links.
+duplicate-headings.md: Document with duplicate headings.
+empty-sections.md: Document with empty sections.
+malformed-lists.md: Document with malformed markdown lists.
+missing-title.md: Document missing the title heading.
+tabs-vs-spaces.md: Document with inconsistent indentation.

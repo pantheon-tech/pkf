@@ -1,0 +1,172 @@
+/**
+ * PKF Init Agent Loader
+ * Loads agent configurations from markdown files with YAML frontmatter
+ */
+
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { AgentConfig, ClaudeModel } from '../types/index.js';
+
+/**
+ * Get the directory containing this file
+ */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+/**
+ * Default model settings if not specified in frontmatter
+ */
+const DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-4-20250514';
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 4096;
+
+/**
+ * Map frontmatter model names to ClaudeModel types
+ */
+const MODEL_MAP: Record<string, ClaudeModel> = {
+  opus: 'claude-opus-4-20250514',
+  sonnet: 'claude-sonnet-4-20250514',
+  haiku: 'claude-haiku-3-5-20241022',
+  'claude-opus-4-20250514': 'claude-opus-4-20250514',
+  'claude-sonnet-4-20250514': 'claude-sonnet-4-20250514',
+  'claude-haiku-3-5-20241022': 'claude-haiku-3-5-20241022',
+};
+
+/**
+ * Parsed frontmatter from agent markdown file
+ */
+interface ParsedFrontmatter {
+  name?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+/**
+ * Parse YAML frontmatter from markdown content
+ * Expects frontmatter between first pair of --- markers
+ *
+ * @param content - Markdown file content
+ * @returns Parsed frontmatter and remaining content
+ */
+function parseFrontmatter(content: string): { frontmatter: ParsedFrontmatter; body: string } {
+  const lines = content.split('\n');
+
+  // Check for opening ---
+  if (lines[0]?.trim() !== '---') {
+    return { frontmatter: {}, body: content };
+  }
+
+  // Find closing ---
+  let endIndex = -1;
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i]?.trim() === '---') {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (endIndex === -1) {
+    return { frontmatter: {}, body: content };
+  }
+
+  // Extract frontmatter lines
+  const frontmatterLines = lines.slice(1, endIndex);
+  const body = lines.slice(endIndex + 1).join('\n').trim();
+
+  // Parse simple YAML key-value pairs
+  const frontmatter: ParsedFrontmatter = {};
+  for (const line of frontmatterLines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex === -1) continue;
+
+    const key = line.slice(0, colonIndex).trim();
+    const value = line.slice(colonIndex + 1).trim();
+
+    switch (key) {
+      case 'name':
+        frontmatter.name = value;
+        break;
+      case 'model':
+        frontmatter.model = value;
+        break;
+      case 'temperature': {
+        const temp = parseFloat(value);
+        if (!isNaN(temp)) {
+          frontmatter.temperature = temp;
+        }
+        break;
+      }
+      case 'maxTokens':
+      case 'max_tokens':
+      case 'max-tokens': {
+        const tokens = parseInt(value, 10);
+        if (!isNaN(tokens)) {
+          frontmatter.maxTokens = tokens;
+        }
+        break;
+      }
+    }
+  }
+
+  return { frontmatter, body };
+}
+
+/**
+ * Get the default agents directory
+ * Resolves from current module to repo root agents/pkf-init/
+ *
+ * @returns Absolute path to default agents directory
+ */
+export function getDefaultAgentsDir(): string {
+  // Navigate from: packages/pkf-init/dist/agents/
+  // Up to: packages/pkf-init/
+  // Then to: ../../agents/pkf-init/ (repo root agents)
+  return join(__dirname, '..', '..', '..', '..', '..', 'agents', 'pkf-init');
+}
+
+/**
+ * Load agent configuration from a markdown file
+ *
+ * @param agentName - Name of the agent (filename without .md extension)
+ * @param agentsDir - Optional directory containing agent files
+ * @returns Parsed AgentConfig
+ * @throws Error if agent file not found or invalid
+ */
+export async function loadAgentConfig(
+  agentName: string,
+  agentsDir?: string
+): Promise<AgentConfig> {
+  const dir = agentsDir ?? getDefaultAgentsDir();
+  const filePath = join(dir, `${agentName}.md`);
+
+  let content: string;
+  try {
+    content = await readFile(filePath, 'utf-8');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to load agent config for "${agentName}": ${errorMessage}`);
+  }
+
+  const { frontmatter, body } = parseFrontmatter(content);
+
+  // Determine model from frontmatter or use default
+  let model: ClaudeModel = DEFAULT_MODEL;
+  if (frontmatter.model) {
+    const mappedModel = MODEL_MAP[frontmatter.model.toLowerCase()];
+    if (mappedModel) {
+      model = mappedModel;
+    }
+  }
+
+  return {
+    name: frontmatter.name ?? agentName,
+    instructions: body,
+    model,
+    temperature: frontmatter.temperature ?? DEFAULT_TEMPERATURE,
+    maxTokens: frontmatter.maxTokens ?? DEFAULT_MAX_TOKENS,
+  };
+}
+
+export default loadAgentConfig;

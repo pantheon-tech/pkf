@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://pkf.dev/schemas/pkf-config.schema.json",
   "title": "PKF Configuration",
-  "description": "Project-level PKF configuration schema",
+  "description": "Project-level PKF configuration schema supporting the Compose Pattern",
   "type": "object",
   "required": ["version", "project"],
   "properties": {
@@ -23,7 +23,7 @@
         "name": {
           "type": "string",
           "description": "Project name",
-          "examples": ["my-project", "CAOF"]
+          "examples": ["my-project", "PKF"]
         },
         "version": {
           "type": "string",
@@ -36,14 +36,30 @@
         },
         "repository": {
           "type": "string",
-          "format": "uri",
           "description": "Git repository URL"
         }
-      }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "description": "Build output configuration",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "default": ".pkf/generated",
+          "description": "Directory for generated artifacts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "docs": {
+      "$ref": "#/definitions/composeNode",
+      "description": "Documentation tree using the Compose Pattern"
     },
     "structure": {
       "type": "object",
-      "description": "Directory structure configuration",
+      "description": "Legacy directory structure configuration",
       "properties": {
         "docsDir": {
           "type": "string",
@@ -75,7 +91,8 @@
           "default": ".claude/agents",
           "description": "AI agent definitions directory"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "registers": {
       "type": "object",
@@ -99,117 +116,60 @@
         "idPrefix": {
           "type": "object",
           "properties": {
-            "todo": {
-              "type": "string",
-              "default": "TODO",
-              "description": "TODO item ID prefix"
-            },
-            "issue": {
-              "type": "string",
-              "default": "ISSUE",
-              "description": "Issue item ID prefix"
-            },
-            "proposal": {
-              "type": "string",
-              "default": "PROP",
-              "description": "Proposal ID prefix"
-            },
-            "adr": {
-              "type": "string",
-              "default": "ADR",
-              "description": "ADR ID prefix"
-            }
-          }
+            "todo": { "type": "string", "default": "TODO" },
+            "issue": { "type": "string", "default": "ISSUE" },
+            "proposal": { "type": "string", "default": "PROP" },
+            "adr": { "type": "string", "default": "ADR" }
+          },
+          "additionalProperties": false
         },
         "idPadding": {
           "type": "integer",
           "minimum": 1,
           "maximum": 6,
-          "default": 3,
-          "description": "Number of digits for ID padding"
+          "default": 3
         }
-      }
+      },
+      "additionalProperties": false
     },
     "ai": {
       "type": "object",
       "description": "AI agent configuration",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether AI agent features are enabled"
-        },
-        "guidanceFile": {
-          "type": "string",
-          "default": "CLAUDE.md",
-          "description": "AI guidance filename"
-        },
-        "systemPromptFile": {
-          "type": "string",
-          "default": ".claude/SYSTEM-PROMPT.md",
-          "description": "Extended system prompt file"
-        },
-        "customAgents": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether custom agent definitions are used"
-        }
-      }
+        "enabled": { "type": "boolean", "default": true },
+        "guidanceFile": { "type": "string", "default": "CLAUDE.md" },
+        "systemPromptFile": { "type": "string", "default": ".claude/SYSTEM-PROMPT.md" },
+        "customAgents": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
     },
     "packages": {
       "type": "object",
       "description": "Multi-package project configuration",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether project has multiple packages"
-        },
-        "directory": {
-          "type": "string",
-          "default": "packages",
-          "description": "Packages directory path"
-        },
-        "inheritRules": {
-          "type": "boolean",
-          "default": true,
-          "description": "Packages inherit project-level rules"
-        }
-      }
+        "enabled": { "type": "boolean", "default": false },
+        "directory": { "type": "string", "default": "packages" },
+        "inheritRules": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
     },
     "validation": {
       "type": "object",
       "description": "Validation configuration",
       "properties": {
-        "validateSchemas": {
-          "type": "boolean",
-          "default": true,
-          "description": "Validate register items against schemas"
-        },
-        "validateLinks": {
-          "type": "boolean",
-          "default": true,
-          "description": "Validate internal documentation links"
-        },
-        "requireNavHubs": {
-          "type": "boolean",
-          "default": true,
-          "description": "Require README.md navigation hubs"
-        }
-      }
+        "validateSchemas": { "type": "boolean", "default": true },
+        "validateLinks": { "type": "boolean", "default": true },
+        "requireNavHubs": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
     },
     "proposals": {
       "type": "object",
       "description": "Proposal system configuration",
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether proposal system is enabled"
-        },
+        "enabled": { "type": "boolean", "default": false },
         "ranges": {
           "type": "object",
-          "description": "Proposal numbering ranges",
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -219,8 +179,64 @@
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "definitions": {
+    "composeNode": {
+      "type": "object",
+      "description": "A node in the Compose Pattern tree",
+      "properties": {
+        "_type": {
+          "type": "string",
+          "enum": ["root", "section", "document", "register"],
+          "description": "Node type defining behavior"
+        },
+        "_readme": {
+          "type": "boolean",
+          "description": "Whether to generate/require README.md"
+        },
+        "_index": {
+          "type": "boolean",
+          "description": "Whether to generate/require INDEX file"
+        },
+        "_description": {
+          "type": "string",
+          "description": "Description of this section/document"
+        },
+        "_schema": {
+          "type": "string",
+          "description": "Schema to validate items against"
+        },
+        "_items": {
+          "$ref": "#/definitions/itemsPattern",
+          "description": "Pattern for dynamic items in this section"
+        }
+      },
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/composeNode" },
+          { "type": "string" }
+        ]
+      }
+    },
+    "itemsPattern": {
+      "type": "object",
+      "description": "Pattern definition for dynamic items",
+      "properties": {
+        "_type": {
+          "type": "string",
+          "enum": ["document", "register"],
+          "description": "Type of items in this section"
+        },
+        "_schema": {
+          "type": "string",
+          "description": "Schema to validate items against"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }

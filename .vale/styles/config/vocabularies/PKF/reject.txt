@@ -1,0 +1,2 @@
+# Words to flag as errors
+# (empty for now - can add terms that should never be used)

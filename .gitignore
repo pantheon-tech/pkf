@@ -19,3 +19,7 @@ node_modules/
 
 # Generated PKF artifacts
 .pkf/generated/
+
+# Vale packages (downloaded via vale sync)
+.vale/styles/Microsoft/
+.vale/styles/write-good/

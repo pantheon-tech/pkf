@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "startedAt": "2025-01-15T10:00:00.000Z",
+  "updatedAt": "2025-01-15T10:30:00.000Z",
+  "currentStage": "analyzing",
+  "checkpoints": [
+    {
+      "stage": "not_started",
+      "timestamp": "2025-01-15T10:00:00.000Z",
+      "description": "Workflow started"
+    },
+    {
+      "stage": "analyzing",
+      "timestamp": "2025-01-15T10:10:00.000Z",
+      "description": "Analysis started",
+      "data": {
+        "filesDiscovered": 15
+      }
+    }
+  ],
+  "analysis": {
+    "complete": false,
+    "discoveredDocs": ["README.md", "docs/guide.md"]
+  },
+  "apiCallCount": 2,
+  "totalCost": 0.15,
+  "totalTokens": 5000
+}

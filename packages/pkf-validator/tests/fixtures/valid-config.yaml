@@ -1,0 +1,43 @@
+# Valid PKF Configuration for Testing
+$schema: "https://pkf.dev/schemas/pkf-config.schema.json"
+version: "1.0.0"
+
+project:
+  name: "test-project"
+  version: "0.1.0"
+  description: "A test project for validation"
+  repository: "https://github.com/example/test-project"
+
+structure:
+  docsDir: "docs"
+  archiveDir: "docs_archive"
+  registersDir: "docs/registers"
+  templatesDir: "docs/framework/templates"
+  schemasDir: "docs/framework/schemas"
+  agentsDir: ".claude/agents"
+
+registers:
+  todoFile: "TODO.md"
+  issuesFile: "ISSUES.md"
+  changelogFile: "CHANGELOG.md"
+  idPrefix:
+    todo: "TODO"
+    issue: "ISSUE"
+    proposal: "PROP"
+    adr: "ADR"
+  idPadding: 3
+
+ai:
+  enabled: true
+  guidanceFile: "CLAUDE.md"
+  customAgents: false
+
+packages:
+  enabled: false
+  directory: "packages"
+  inheritRules: true
+
+validation:
+  validateSchemas: true
+  validateLinks: true
+  requireNavHubs: true

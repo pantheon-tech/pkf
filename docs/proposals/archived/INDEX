@@ -1,0 +1,6 @@
+# proposals/archived INDEX
+# Superseded or rejected proposals
+
+PKF-AI-INIT-ARCHITECTURE.md: Original architecture proposal for AI-assisted PKF initialization. Superseded by v1.1 after peer review identified critical issues including missing processor specification, unverified external dependencies, and contradictions with research document. Preserved for historical reference and to understand the evolution of the design.
+
+PKF-PEER-REVIEW-FEEDBACK.md: Initial peer review (PKF-REVIEW-001) identifying 3 critical, 4 major, and 3 minor issues in the architecture. Key findings included missing compiler/runtime specification (CRIT-001), unverified directory-schema-validator dependency (CRIT-002), and architecture vs research contradictions (CRIT-003). All issues were subsequently addressed in v1.1 revision.

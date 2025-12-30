@@ -2,11 +2,22 @@
 
 > Architecture documentation for the Project Knowledge Framework.
 
-## Contents
+## Overview
+
+This directory contains architecture documentation for PKF. Documents are organized by lifecycle state.
+
+## Lifecycle States
+
+| Directory | Description |
+|-----------|-------------|
+| [active/](active/) | Current architecture documents |
+| [archived/](archived/) | Superseded architecture documents |
+
+## Active Documents
 
 ### Core Architecture
 
-- **[PKF-ARCHITECTURE.md](PKF-ARCHITECTURE.md)** - Comprehensive framework architecture specification
+- **[PKF-ARCHITECTURE.md](active/PKF-ARCHITECTURE.md)** - Comprehensive framework architecture specification
   - Compose Pattern for declarative tree configuration
   - Component Type System
   - Schema and Template Systems
@@ -48,6 +59,6 @@ Layer 0: Repository          - docs/, Markdown, Git
 
 ---
 
-**Status:** Architecture specification draft complete, pending peer review.
+**Status:** Active
 
-**Last Updated:** 2025-12-27
+**Last Updated:** 2025-12-29

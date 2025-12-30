@@ -1,0 +1,6 @@
+# section-a INDEX
+# Malformed - missing colons
+
+file1.md Description without colon separator
+file2.md Another description without colon
+file3.md Yet another

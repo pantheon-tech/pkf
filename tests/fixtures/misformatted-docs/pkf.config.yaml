@@ -1,0 +1,17 @@
+version: "1.0.0"
+
+project:
+  name: MisformattedDocsTest
+  description: Test fixture with various formatting issues
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+
+  guides:
+    _type: section
+    _readme: true
+    _index: true

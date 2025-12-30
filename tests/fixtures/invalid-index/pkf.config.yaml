@@ -1,0 +1,27 @@
+version: "1.0.0"
+
+project:
+  name: InvalidIndexTest
+  description: Test fixture with malformed INDEX files
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+
+  section-a:
+    _type: section
+    _readme: true
+    _index: true
+
+  section-b:
+    _type: section
+    _readme: true
+    _index: true
+
+  section-c:
+    _type: section
+    _readme: true
+    _index: true

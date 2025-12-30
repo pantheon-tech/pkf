@@ -1,0 +1,5 @@
+# schemas INDEX
+# JSON Schema definitions
+
+config.schema.json: Configuration schema.
+document.schema.json: Document schema.

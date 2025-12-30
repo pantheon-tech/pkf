@@ -1,0 +1,83 @@
+version: "1.0.0"
+
+project:
+  name: LargeStructureTest
+  description: Test fixture with large documentation tree
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+  _index: true
+
+  architecture:
+    _type: section
+    _readme: true
+    active:
+      _type: section
+      _readme: true
+      _index: true
+    archived:
+      _type: section
+      _readme: true
+      _index: true
+
+  proposals:
+    _type: section
+    _readme: true
+    draft:
+      _type: section
+      _readme: true
+      _index: true
+    active:
+      _type: section
+      _readme: true
+      _index: true
+    archived:
+      _type: section
+      _readme: true
+      _index: true
+
+  implementation:
+    _type: section
+    _readme: true
+    active:
+      _type: section
+      _readme: true
+      _index: true
+    completed:
+      _type: section
+      _readme: true
+      _index: true
+
+  guides:
+    _type: section
+    _readme: true
+    _index: true
+
+  framework:
+    _type: section
+    _readme: true
+    specifications:
+      _type: section
+      _readme: true
+      _index: true
+    schemas:
+      _type: section
+      _readme: true
+      _index: true
+
+  registers:
+    _type: section
+    _readme: true
+    TODO.md:
+      _type: register
+      _schema: todo-item
+    ISSUES.md:
+      _type: register
+      _schema: issue-item
+    CHANGELOG.md:
+      _type: register
+      _schema: changelog-entry

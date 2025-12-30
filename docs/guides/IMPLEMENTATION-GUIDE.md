@@ -511,9 +511,9 @@ When making changes:
 
 ### Getting Help
 
-- Review [PKF Specification](PKF-SPECIFICATION.md)
-- Check [schemas/](schemas/) for validation rules
-- Reference [templates/](templates/) for correct format
+- Review [PKF Specification](../framework/specifications/PKF-SPECIFICATION.md)
+- Check [schemas/](../framework/schemas/) for validation rules
+- Reference [templates/](../../templates/) for correct format
 - Use documentation-analyst agent for audits
 
 ---

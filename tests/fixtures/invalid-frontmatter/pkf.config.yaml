@@ -1,0 +1,19 @@
+version: "1.0.0"
+
+project:
+  name: InvalidFrontmatterTest
+  description: Test fixture with invalid YAML frontmatter
+
+output:
+  dir: .pkf/generated
+
+docs:
+  _type: root
+  _readme: true
+
+  proposals:
+    _type: section
+    _readme: true
+    _items:
+      _type: document
+      _schema: document-frontmatter

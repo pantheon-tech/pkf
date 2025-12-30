@@ -1,0 +1,8 @@
+# implementation/tracking INDEX
+# Workstream-level tracking documents
+
+TODO.md: Task tracking for implementation workstreams. Contains pending, in-progress, and completed tasks with IDs in format WS-{ID}-T{NNN}. Used for day-to-day progress tracking during implementation phases.
+
+ISSUES.md: Issue tracking for implementation problems and blockers. Documents bugs, technical debt, and obstacles encountered during implementation with severity and status tracking.
+
+NOTES.md: Implementation notes and decisions. Captures technical decisions, API discoveries, workarounds, and lessons learned during implementation. Informal format for knowledge capture.

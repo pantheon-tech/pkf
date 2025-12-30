@@ -1,0 +1,18 @@
+# framework/schemas INDEX
+# Reference JSON Schema files for PKF validation
+
+changelog-entry.schema.json: Schema for changelog entries following Keep a Changelog format. Validates version (semver), date, status, breaking_changes flag, and change categories (added, changed, deprecated, removed, fixed, security).
+
+directory-structure.schema.json: Schema for validating PKF directory structure definitions. Used by pkf-processor to generate and validate structure.json artifacts.
+
+document-frontmatter.schema.json: Generic frontmatter schema for PKF documents. Defines common fields: title, version, status, category, created, updated, author, tags. Used as base schema for all document types.
+
+issue-item.schema.json: Schema for issue register entries. Validates id (ISS-NNN format), status (open, investigating, in-progress, resolved, closed), severity (critical, high, medium, low), and tracking fields.
+
+pkf-config.schema.json: Schema for pkf.config.yaml project configuration. Validates project metadata, output settings, and documentation tree structure with compose pattern nodes.
+
+register-entry.schema.json: Base schema for all register entries. Defines common fields inherited by todo-item, issue-item, and changelog-entry schemas.
+
+template-metadata.schema.json: Schema for template placeholder definitions. Validates variable names, types, defaults, and required flags used in .template.md files.
+
+todo-item.schema.json: Schema for TODO register entries. Validates id (TODO-NNN format), status (pending, in-progress, blocked, completed, cancelled), priority, dates, and description fields.
