@@ -115,15 +115,15 @@ function parseFrontmatter(content: string): { frontmatter: ParsedFrontmatter; bo
 
 /**
  * Get the default agents directory
- * Resolves from current module to repo root agents/pkf-init/
+ * Resolves to the agents/ directory bundled with the package
  *
  * @returns Absolute path to default agents directory
  */
 export function getDefaultAgentsDir(): string {
-  // Navigate from: packages/pkf-init/dist/agents/
-  // Up to: packages/pkf-init/
-  // Then to: ../../agents/pkf-init/ (repo root agents)
-  return join(__dirname, '..', '..', '..', '..', '..', 'agents', 'pkf-init');
+  // Navigate from: dist/agents/ to package root agents/
+  // __dirname = packages/pkf-init/dist/agents/
+  // We need:   packages/pkf-init/agents/
+  return join(__dirname, '..', '..', 'agents');
 }
 
 /**

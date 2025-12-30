@@ -5,7 +5,7 @@
 import type { AgentConfig } from '../types/index.js';
 /**
  * Get the default agents directory
- * Resolves from current module to repo root agents/pkf-init/
+ * Resolves to the agents/ directory bundled with the package
  *
  * @returns Absolute path to default agents directory
  */
