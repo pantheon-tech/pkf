@@ -1,6 +1,6 @@
 {
   "name": "@pantheon-tech/pkf-validator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "PKF Validation - validates PKF configuration, registers, and documentation",
   "type": "module",
   "exports": {

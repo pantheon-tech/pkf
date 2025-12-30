@@ -1,6 +1,6 @@
 {
   "name": "pkf-monorepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Project Knowledge Framework - Declarative documentation management",
   "private": true,
   "type": "module",

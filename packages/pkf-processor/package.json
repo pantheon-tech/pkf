@@ -1,6 +1,6 @@
 {
   "name": "@pantheon-tech/pkf-processor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "PKF Configuration Processor - transforms pkf.config.yaml into validation artifacts",
   "type": "module",
   "exports": {

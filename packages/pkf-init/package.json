@@ -1,6 +1,6 @@
 {
   "name": "@pantheon-tech/pkf-init",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-assisted PKF initialization for existing projects",
   "type": "module",
   "exports": {
