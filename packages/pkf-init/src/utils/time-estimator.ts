@@ -167,13 +167,32 @@ export class DryRunReport {
    * @returns Dry run estimate
    */
   async analyze(rootDir: string): Promise<DryRunEstimate> {
-    // Scan for markdown files in docs directory
-    const docsDir = this.config.docsDir;
-    const pattern = path.join(docsDir, '**/*.md');
+    // Directories to exclude from scanning
+    const excludeDirs = [
+      '**/node_modules/**',
+      '**/.git/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/coverage/**',
+      '**/.next/**',
+      '**/.nuxt/**',
+      '**/.cache/**',
+      '**/.turbo/**',
+      '**/vendor/**',
+      '**/__pycache__/**',
+      '**/.venv/**',
+      '**/venv/**',
+    ];
+
+    // Scan for ALL markdown files in entire repository
+    const pattern = path.join(rootDir, '**/*.md');
 
     let markdownFiles: string[] = [];
     try {
-      markdownFiles = await glob(pattern, { nodir: true });
+      markdownFiles = await glob(pattern, {
+        nodir: true,
+        ignore: excludeDirs,
+      });
     } catch {
       // If glob fails, assume empty
       markdownFiles = [];
@@ -187,7 +206,7 @@ export class DryRunReport {
       const allPattern = path.join(rootDir, '**/*');
       allFiles = await glob(allPattern, {
         nodir: true,
-        ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
+        ignore: excludeDirs,
       });
     } catch {
       allFiles = [];
