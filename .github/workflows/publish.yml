@@ -5,10 +5,14 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish (e.g., 1.2.0)'
+      bump:
+        description: 'Version bump type'
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
       dry_run:
         description: 'Dry run (skip actual publish)'
         required: false
@@ -27,6 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -39,21 +44,34 @@ jobs:
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
+            # Get current version from package.json
+            CURRENT_VERSION=$(node -p "require('./package.json').version")
+            echo "Current version: $CURRENT_VERSION"
+
+            # Calculate new version based on bump type
+            BUMP_TYPE="${{ inputs.bump }}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+            case "$BUMP_TYPE" in
+              major)
+                NEW_VERSION="$((MAJOR + 1)).0.0"
+                ;;
+              minor)
+                NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                ;;
+              patch)
+                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                ;;
+            esac
+
+            echo "New version: $NEW_VERSION (bump: $BUMP_TYPE)"
+            echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           else
             # Extract version from release tag (e.g., v1.2.0 -> 1.2.0)
             VERSION="${{ github.event.release.tag_name }}"
             VERSION="${VERSION#v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Publishing version: $VERSION"
-
-      - name: Validate version format
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-            echo "Error: Invalid version format '$VERSION'. Expected format: X.Y.Z or X.Y.Z-prerelease"
-            exit 1
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "Publishing version: $VERSION"
           fi
 
       - name: Update package versions
@@ -107,7 +125,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Commit version changes if any
+          # Commit version changes
           git add .
           git commit -m "chore(release): v$VERSION" || echo "No changes to commit"
           git push origin main || echo "No commits to push"
@@ -128,6 +146,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "**Mode:** Dry Run (no packages published)" >> $GITHUB_STEP_SUMMARY
+            echo "**Would publish:** v$VERSION" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Version:** v$VERSION" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
