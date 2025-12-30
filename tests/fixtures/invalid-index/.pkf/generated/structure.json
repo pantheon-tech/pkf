@@ -1,7 +1,7 @@
 {
   "$schema": "https://pkf.dev/schemas/structure.schema.json",
   "version": "1.0.0",
-  "generated": "2025-12-30T03:02:20.405Z",
+  "generated": "2025-12-30T14:27:48.482Z",
   "root": {
     "type": "directory",
     "required": true,
