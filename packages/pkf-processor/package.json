@@ -1,5 +1,5 @@
 {
-  "name": "pkf-processor",
+  "name": "@pantheon-tech/pkf-processor",
   "version": "1.0.0",
   "description": "PKF Configuration Processor - transforms pkf.config.yaml into validation artifacts",
   "type": "module",
@@ -16,6 +16,15 @@
     "dist",
     "README.md"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pantheon-tech/pkf.git",
+    "directory": "packages/pkf-processor"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -34,7 +43,7 @@
     "frontmatter",
     "schema"
   ],
-  "author": "",
+  "author": "Pantheon Tech",
   "license": "MIT",
   "dependencies": {
     "ajv": "^8.17.1",

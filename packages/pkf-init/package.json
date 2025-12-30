@@ -1,12 +1,29 @@
 {
-  "name": "pkf-init",
+  "name": "@pantheon-tech/pkf-init",
   "version": "1.0.0",
   "description": "AI-assisted PKF initialization for existing projects",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "bin": {
-    "pkf-init": "dist/cli.js"
+    "pkf-init": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pantheon-tech/pkf.git",
+    "directory": "packages/pkf-init"
   },
   "scripts": {
     "build": "tsc",
@@ -21,7 +38,7 @@
     "ai",
     "initialization"
   ],
-  "author": "PKF Team",
+  "author": "Pantheon Tech",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -40,6 +57,6 @@
     "vitest": "^2.1.9"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

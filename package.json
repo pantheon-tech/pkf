@@ -1,10 +1,20 @@
 {
-  "name": "pkf",
+  "name": "pkf-monorepo",
   "version": "1.0.0",
   "description": "Project Knowledge Framework - Declarative documentation management",
   "private": true,
   "type": "module",
+  "author": "Pantheon Tech",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pantheon-tech/pkf.git"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
+    "build:packages": "npm run build --workspaces --if-present",
     "pkf:build": "node ./packages/pkf-processor/dist/cli.js build",
     "pkf:validate": "npm-run-all pkf:validate:*",
     "pkf:validate:config": "ajv validate -s schemas/pkf-config.schema.json -d pkf.config.yaml --spec=draft7 --strict=false",
