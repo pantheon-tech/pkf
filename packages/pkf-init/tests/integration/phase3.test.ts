@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import * as yaml from 'js-yaml';
+import { safeLoad } from '../../src/utils/yaml.js';
 import { StructureGenerator } from '../../src/generators/structure.js';
 import { ConfigGenerator } from '../../src/generators/config.js';
 import { RegisterInitializer } from '../../src/generators/registers.js';
@@ -44,7 +44,7 @@ describe('Phase 3 Integration Tests', () => {
     if (!match) {
       return null;
     }
-    return yaml.load(match[1]) as Record<string, unknown>;
+    return safeLoad(match[1]) as Record<string, unknown>;
   }
 
   /**
@@ -160,7 +160,7 @@ document_types:
       const configYaml = await generator.generate(schemasYaml, structure);
 
       // Parse output YAML and verify structure
-      const config = yaml.load(configYaml) as Record<string, unknown>;
+      const config = safeLoad(configYaml) as Record<string, unknown>;
 
       // Verify version
       expect(config.version).toBe('1.0.0');
@@ -503,7 +503,7 @@ metadata:
       expect(writtenContent).toBe(schemasYaml);
 
       // Verify the content is parseable
-      const parsed = yaml.load(writtenContent) as Record<string, unknown>;
+      const parsed = safeLoad(writtenContent) as Record<string, unknown>;
       expect(parsed.version).toBe('1.0.0');
       expect(parsed.document_types).toBeDefined();
       expect(parsed.metadata).toBeDefined();
@@ -556,7 +556,7 @@ document_types:
 
       // Read and parse the generated config
       const configContent = await fs.readFile(result.configPath!, 'utf-8');
-      const pkfConfig = yaml.load(configContent) as Record<string, unknown>;
+      const pkfConfig = safeLoad(configContent) as Record<string, unknown>;
 
       // Verify project name and description from package.json
       const project = pkfConfig.project as Record<string, string>;
@@ -592,7 +592,7 @@ document_types:
 
       // Read and parse the generated config
       const configContent = await fs.readFile(result.configPath!, 'utf-8');
-      const pkfConfig = yaml.load(configContent) as Record<string, unknown>;
+      const pkfConfig = safeLoad(configContent) as Record<string, unknown>;
 
       // Verify defaults are used
       const project = pkfConfig.project as Record<string, string>;

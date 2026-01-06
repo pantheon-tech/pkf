@@ -3,10 +3,99 @@
  * Uses agent conversation to design PKF schemas based on the blueprint.
  */
 import { WorkflowStage } from '../types/index.js';
-import * as jsYaml from 'js-yaml';
+import { SchemaLoader, validateSchemasYaml as validateSchemas } from '@pantheon-tech/pkf-core/schema';
+import { safeLoad } from '../utils/yaml.js';
+import logger from '../utils/logger.js';
 // ============================================================================
 // PKF Schema DSL Reference
 // ============================================================================
+/**
+ * PKF Base Schema - the canonical starting point for all PKF schemas
+ * Agents should use this with MINIMAL modifications
+ */
+const PKF_BASE_SCHEMA = `
+version: "1.0"
+schemas:
+  base-doc:
+    _description: "Base document type with common metadata fields"
+    properties:
+      title:
+        type: string
+        required: true
+        description: "Document title"
+      created:
+        type: date
+        required: true
+        description: "Creation date (ISO 8601)"
+        default: "{{TODAY}}"
+      updated:
+        type: date
+        description: "Last update date (ISO 8601)"
+      status:
+        type: string
+        required: true
+        enum: [draft, review, published, deprecated]
+        default: draft
+        description: "Document lifecycle status"
+      author:
+        type: string
+        description: "Document author"
+        default: "{{GIT_USER}}"
+      tags:
+        type: array
+        items:
+          type: string
+        description: "Categorization tags"
+
+  guide:
+    _extends: base-doc
+    _description: "User or developer guide"
+    properties:
+      audience:
+        type: string
+        enum: [user, developer, admin, all]
+        description: "Target audience"
+      difficulty:
+        type: string
+        enum: [beginner, intermediate, advanced]
+        description: "Content difficulty level"
+
+  spec:
+    _extends: base-doc
+    _description: "Technical specification or API documentation"
+    properties:
+      version:
+        type: string
+        pattern: "^\\\\d+\\\\.\\\\d+(\\\\.\\\\d+)?$"
+        description: "Specification version (semver)"
+
+  adr:
+    _extends: base-doc
+    _description: "Architecture Decision Record"
+    properties:
+      decision-date:
+        type: date
+        required: true
+        description: "Date decision was made"
+      decision-status:
+        type: string
+        required: true
+        enum: [proposed, accepted, deprecated, superseded]
+        description: "Decision status"
+      superseded-by:
+        type: string
+        description: "ADR that supersedes this one (if any)"
+
+  register:
+    _extends: base-doc
+    _description: "Register document (TODO, ISSUES, CHANGELOG)"
+    properties:
+      register-type:
+        type: string
+        required: true
+        enum: [todo, issues, changelog]
+        description: "Type of register"
+`;
 /**
  * PKF Schema DSL specification reference for agents
  */
@@ -15,24 +104,26 @@ const PKF_SCHEMA_DSL_REFERENCE = `
 
 The PKF Schema DSL is a YAML-based language for defining document type schemas.
 
-### File Structure
+### IMPORTANT: Use the PKF Base Schema
+
+You MUST use the PKF Base Schema below as your starting point. Only add project-specific
+types if the blueprint clearly identifies document types not covered by the base schema.
+
+**Minimize customizations** - the base schema covers most common documentation patterns.
+Only add new types when absolutely necessary.
+
+### PKF Base Schema (USE THIS)
 \`\`\`yaml
-version: "1.0"
-schemas:
-  schema-name:
-    _extends: parent-schema    # Optional inheritance
-    _description: "Description"
-    _examples:
-      - "docs/example.md"
-    properties:
-      field-name:
-        type: string|number|boolean|date|array|object
-        required: true|false
-        description: "Field description"
-        default: "default value"
-        enum: [value1, value2]
-        pattern: "^regex$"
+${PKF_BASE_SCHEMA}
 \`\`\`
+
+### Adding Project-Specific Types
+
+If you need to add types beyond the base schema:
+1. Always extend \`base-doc\` (never create standalone types)
+2. Only add fields that are actually needed based on the blueprint
+3. Prefer simple field types (string, date, boolean)
+4. Use enums for constrained values
 
 ### Property Types
 - \`string\`: Text value
@@ -42,26 +133,10 @@ schemas:
 - \`array\`: List of values (use \`items\` to define item type)
 - \`object\`: Nested structure
 
-### Constraints
-- \`required\`: Whether field is required (default: false)
-- \`enum\`: List of allowed values
-- \`pattern\`: Regex pattern for validation
-- \`minimum/maximum\`: For numbers
-- \`minLength/maxLength\`: For strings
-- \`minItems/maxItems\`: For arrays
-- \`uniqueItems\`: For arrays
-
 ### Default Placeholders
 - \`{{TODAY}}\`: Current date
 - \`{{GIT_USER}}\`: Git user.name
 - \`{{GIT_EMAIL}}\`: Git user.email
-
-### Best Practices
-1. Create a base-doc type with common fields (title, created, updated, status)
-2. Use _extends for inheritance to avoid duplication
-3. Use descriptive enum values (e.g., \`draft\`, \`published\` not \`0\`, \`1\`)
-4. Add descriptions to all schemas and fields
-5. Use clear, lowercase schema names with hyphens
 `;
 // ============================================================================
 // SchemaDesignStage Class
@@ -101,121 +176,194 @@ export class SchemaDesignStage {
      * @returns SchemaDesignResult with schemas.yaml content
      */
     async execute(blueprint) {
-        try {
-            // Create initial prompt with blueprint
-            const initialPrompt = this.buildInitialPrompt(blueprint);
-            // Run agent conversation
-            const agentResult = await this.orchestrator.agentConversation('documentation-analyst-init', 'pkf-implementer', initialPrompt, this.maxIterations);
-            // Extract iterations from metadata
-            const iterations = agentResult.metadata?.iterations ?? 1;
-            const convergenceReason = agentResult.metadata?.convergenceReason;
-            // Check if conversation succeeded
-            if (!agentResult.success) {
-                // If max iterations reached, we still try to extract schemas
-                // The output might still be usable
-                if (agentResult.error?.includes('Max iterations')) {
-                    // Try to extract schemas from the final output
-                    const schemasYaml = this.extractSchemasYaml(agentResult.output);
-                    if (schemasYaml) {
-                        // Validate the extracted schemas
-                        const validation = await this.validateSchemasYaml(schemasYaml);
-                        if (validation.valid) {
-                            // Handle interactive approval
-                            const approvalResult = await this.handleInteractiveApproval(schemasYaml, iterations);
-                            if (!approvalResult.approved) {
-                                if (approvalResult.requestMore) {
-                                    // User wants more iterations - return as incomplete
-                                    return {
-                                        success: false,
-                                        schemasYaml: approvalResult.edited || schemasYaml,
-                                        iterations,
-                                        error: 'User requested more iterations',
-                                    };
-                                }
-                                return {
-                                    success: false,
-                                    iterations,
-                                    error: 'User cancelled schema approval',
-                                };
-                            }
-                            // Use edited version if provided
-                            const finalSchemas = approvalResult.edited || schemasYaml;
-                            // Save state with checkpoint
-                            await this.saveState(finalSchemas, iterations, convergenceReason);
-                            return {
-                                success: true,
-                                schemasYaml: finalSchemas,
-                                iterations,
-                                convergenceReason: 'Max iterations reached with valid schemas',
-                            };
-                        }
+        let totalIterations = 0;
+        let currentSchemas;
+        let currentPrompt = this.buildInitialPrompt(blueprint);
+        const additionalIterationsPerRequest = 3;
+        // Loop until user approves or cancels
+        while (true) {
+            try {
+                logger.info(`Running agent conversation (max ${this.maxIterations} iterations)...`);
+                // Run agent conversation
+                const agentResult = await this.orchestrator.agentConversation('documentation-analyst-init', 'pkf-implementer', currentPrompt, this.maxIterations);
+                // Extract iterations from metadata
+                const iterationsThisRound = agentResult.metadata?.iterations ?? 1;
+                totalIterations += iterationsThisRound;
+                const convergenceReason = agentResult.metadata?.convergenceReason;
+                // Log conversation summary
+                this.logConversationSummary(agentResult, iterationsThisRound);
+                // Try to extract schemas from output (even if "failed" due to max iterations)
+                const schemasYaml = this.extractSchemasYaml(agentResult.output);
+                if (!schemasYaml) {
+                    // If we have previous schemas, use those
+                    if (currentSchemas) {
+                        logger.warn('Could not extract new schemas, using previous version');
+                    }
+                    else {
+                        // Fallback: use the PKF base schema as a starting point
+                        logger.warn('Could not extract schemas from agent response, using PKF base schema');
+                        logger.debug('Agent output was: ' + agentResult.output.substring(0, 500) + '...');
+                        currentSchemas = PKF_BASE_SCHEMA.trim();
+                    }
+                }
+                else {
+                    currentSchemas = schemasYaml;
+                }
+                // Save intermediate checkpoint with current schemas (for resume capability)
+                await this.saveIntermediateCheckpoint(currentSchemas, totalIterations);
+                // Validate schemas
+                const validation = await this.validateSchemasYaml(currentSchemas);
+                if (!validation.valid) {
+                    return {
+                        success: false,
+                        schemasYaml: currentSchemas,
+                        iterations: totalIterations,
+                        convergenceReason,
+                        error: `Schema validation failed: ${validation.errors.join(', ')}`,
+                    };
+                }
+                // Show validation warnings
+                if (validation.warnings.length > 0) {
+                    for (const warning of validation.warnings) {
+                        logger.warn(`Schema warning: ${warning}`);
+                    }
+                }
+                // Handle interactive approval with blueprint for target structure display
+                const approvalResult = await this.handleInteractiveApproval(currentSchemas, totalIterations, blueprint);
+                if (!approvalResult.approved) {
+                    if (approvalResult.requestMore) {
+                        // User wants more iterations - continue the loop
+                        logger.info('User requested more iterations, continuing conversation...');
+                        // Build continuation prompt with current schemas as context
+                        const editedSchemas = approvalResult.edited || currentSchemas;
+                        currentPrompt = this.buildContinuationPrompt(blueprint, editedSchemas);
+                        currentSchemas = editedSchemas;
+                        // Add more iterations for this round
+                        this.maxIterations = additionalIterationsPerRequest;
+                        continue; // Continue the loop
+                    }
+                    return {
+                        success: false,
+                        iterations: totalIterations,
+                        convergenceReason,
+                        error: 'User cancelled schema approval',
+                    };
+                }
+                // User approved - finalize
+                const finalSchemas = approvalResult.edited || currentSchemas;
+                // Save state with checkpoint
+                await this.saveState(finalSchemas, totalIterations, convergenceReason);
+                return {
+                    success: true,
+                    schemasYaml: finalSchemas,
+                    iterations: totalIterations,
+                    convergenceReason: convergenceReason || 'User approved',
+                };
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                // Save current state even on error so we can resume
+                if (currentSchemas) {
+                    try {
+                        await this.saveIntermediateCheckpoint(currentSchemas, totalIterations, errorMessage);
+                    }
+                    catch (saveError) {
+                        logger.warn('Failed to save checkpoint on error:', saveError);
                     }
                 }
                 return {
                     success: false,
-                    iterations,
-                    error: agentResult.error || 'Agent conversation failed',
+                    schemasYaml: currentSchemas,
+                    iterations: totalIterations,
+                    error: `Schema design stage failed: ${errorMessage}`,
                 };
             }
-            // Extract schemas.yaml from the response
-            const schemasYaml = this.extractSchemasYaml(agentResult.output);
-            if (!schemasYaml) {
-                return {
-                    success: false,
-                    iterations,
-                    convergenceReason,
-                    error: 'Could not extract schemas.yaml from agent response',
-                };
-            }
-            // Validate schemas.yaml structure
-            const validation = await this.validateSchemasYaml(schemasYaml);
-            if (!validation.valid) {
-                return {
-                    success: false,
-                    schemasYaml,
-                    iterations,
-                    convergenceReason,
-                    error: `Schema validation failed: ${validation.errors.join(', ')}`,
-                };
-            }
-            // Handle interactive approval
-            const approvalResult = await this.handleInteractiveApproval(schemasYaml, iterations);
-            if (!approvalResult.approved) {
-                if (approvalResult.requestMore) {
-                    // User wants more iterations
-                    return {
-                        success: false,
-                        schemasYaml: approvalResult.edited || schemasYaml,
-                        iterations,
-                        error: 'User requested more iterations',
-                    };
-                }
-                return {
-                    success: false,
-                    iterations,
-                    convergenceReason,
-                    error: 'User cancelled schema approval',
-                };
-            }
-            // Use edited version if provided
-            const finalSchemas = approvalResult.edited || schemasYaml;
-            // Save state with checkpoint
-            await this.saveState(finalSchemas, iterations, convergenceReason);
-            return {
-                success: true,
-                schemasYaml: finalSchemas,
-                iterations,
-                convergenceReason,
-            };
         }
-        catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return {
-                success: false,
-                iterations: 0,
-                error: `Schema design stage failed: ${errorMessage}`,
-            };
+    }
+    /**
+     * Log a summary of the agent conversation
+     */
+    logConversationSummary(agentResult, iterations) {
+        logger.info(`Agent conversation completed:`);
+        logger.info(`  Iterations: ${iterations}`);
+        if (agentResult.metadata?.converged) {
+            logger.success(`  Converged: ${agentResult.metadata.convergenceReason}`);
         }
+        else {
+            logger.info(`  Status: Max iterations reached (output may still be valid)`);
+        }
+        // Extract key discussion points from the output
+        const keyPoints = this.extractKeyDiscussionPoints(agentResult.output);
+        if (keyPoints.length > 0) {
+            logger.info(`  Key discussion points:`);
+            for (const point of keyPoints) {
+                logger.info(`    • ${point}`);
+            }
+        }
+    }
+    /**
+     * Extract key discussion points from agent output
+     */
+    extractKeyDiscussionPoints(output) {
+        const points = [];
+        // Extract schema names defined
+        const schemaMatch = output.match(/^ {2}([a-z][a-z0-9-]+):$/gm);
+        if (schemaMatch) {
+            const schemaNames = schemaMatch.map(s => s.trim().replace(':', '')).filter(s => s !== 'properties');
+            if (schemaNames.length > 0) {
+                points.push(`Defined schemas: ${schemaNames.slice(0, 5).join(', ')}${schemaNames.length > 5 ? ` (+${schemaNames.length - 5} more)` : ''}`);
+            }
+        }
+        // Look for approval signal
+        if (output.includes('SCHEMA-DESIGN-APPROVED')) {
+            const approvalMatch = output.match(/SCHEMA-DESIGN-APPROVED:\s*(.+?)(?:\n|$)/);
+            if (approvalMatch) {
+                points.push(`Approval reason: ${approvalMatch[1].trim()}`);
+            }
+        }
+        return points.slice(0, 5); // Limit to 5 points
+    }
+    /**
+     * Build a continuation prompt for additional iterations
+     */
+    buildContinuationPrompt(blueprint, currentSchemas) {
+        return `Continue refining the PKF schemas. The reviewer wants additional refinement.
+
+## Blueprint (Reference)
+
+${blueprint}
+
+## Current Schema Draft
+
+\`\`\`yaml
+${currentSchemas}
+\`\`\`
+
+## Review Criteria
+
+1. Are document types correctly mapped to PKF base types?
+2. Is inheritance (\`_extends: base-doc\`) used consistently?
+3. Are there unnecessary custom types that could use base schema types?
+4. Are field types and constraints appropriate?
+
+## Response Format (REQUIRED)
+
+Every response MUST include:
+1. Brief assessment (2-3 sentences)
+2. Complete updated schemas.yaml in a YAML code block
+3. Summary of changes (if any)
+
+## Convergence
+
+When the schema is complete and needs no further changes, output:
+SCHEMA-DESIGN-APPROVED: [brief reason]
+
+The schema MUST be included in the same response as the approval signal.
+
+## Begin
+
+Review and propose any needed improvements.
+`;
     }
     /**
      * Build the initial prompt for schema design
@@ -224,33 +372,54 @@ export class SchemaDesignStage {
      * @returns Initial prompt string
      */
     buildInitialPrompt(blueprint) {
-        return `Based on the following documentation blueprint, design a PKF schemas.yaml file.
+        return `Design a PKF schemas.yaml file based on the documentation blueprint below.
 
-## Blueprint
+## Documentation Blueprint
 
 ${blueprint}
 
-## Requirements
-
-1. Define a base-document type with common fields (title, created, updated, status)
-2. Create specific types for each document category identified in the blueprint
-3. Use _extends for inheritance from base-document
-4. Follow PKF Schema DSL specification
-5. Include appropriate validation rules (required fields, enums, patterns)
-6. Add descriptions for all schemas and fields
-
 ${PKF_SCHEMA_DSL_REFERENCE}
 
-## Convergence Signal
+## CRITICAL Requirements
 
-When you agree on the final schema design, output:
-SCHEMA-DESIGN-APPROVED: [reason for approval]
+1. **START WITH THE PKF BASE SCHEMA** - Copy the base schema exactly, then add only what's needed
+2. **MINIMIZE CUSTOMIZATIONS** - The base schema covers most use cases. Only add new types if
+   the blueprint explicitly identifies document types not covered (guide, spec, adr, register)
+3. **Every response MUST include a complete schemas.yaml** in a YAML code block
+4. Map blueprint document types to existing base schema types when possible:
+   - README, guide, tutorial, how-to → use \`guide\` type
+   - specification, API docs → use \`spec\` type
+   - architecture decision → use \`adr\` type
+   - TODO, ISSUES, CHANGELOG → use \`register\` type
+   - All others → use \`base-doc\` directly
 
-The final output MUST include the complete schemas.yaml wrapped in a yaml code block.
+## Response Format (REQUIRED)
+
+Every response MUST include this structure:
+
+1. Brief analysis (2-3 sentences max)
+2. The complete schemas.yaml in a code block:
+
+\`\`\`yaml
+version: "1.0"
+schemas:
+  base-doc:
+    # ... full schema definition
+  # ... other types
+\`\`\`
+
+3. If proposing changes, explain what was added/modified
+
+## Convergence
+
+When both agents agree the schema is complete, output:
+SCHEMA-DESIGN-APPROVED: [brief reason]
+
+The schema MUST be included in the same response as the approval signal.
 
 ## Begin
 
-Begin the design discussion. Review the blueprint and propose an initial schema structure.
+Review the blueprint. Output your proposed schemas.yaml using the PKF base schema as the foundation.
 `;
     }
     /**
@@ -260,67 +429,8 @@ Begin the design discussion. Review the blueprint and propose an initial schema 
      * @returns Extracted YAML content or null
      */
     extractSchemasYaml(response) {
-        if (!response) {
-            return null;
-        }
-        // Try to find YAML code blocks
-        const yamlBlockRegex = /```ya?ml\n([\s\S]*?)```/gi;
-        let match;
-        // Look for blocks that contain the schemas structure
-        while ((match = yamlBlockRegex.exec(response)) !== null) {
-            const content = match[1].trim();
-            // Check if this block has the schemas.yaml structure
-            if (this.looksLikeSchemasYaml(content)) {
-                return content;
-            }
-        }
-        // If no code blocks found, try to find raw YAML with schemas key
-        const schemasMatch = response.match(/^(version:\s*["']?\d+\.\d+["']?\s*\nschemas:[\s\S]*?)(?=\n\n[A-Z]|\n##|$)/m);
-        if (schemasMatch) {
-            const content = schemasMatch[1].trim();
-            if (this.looksLikeSchemasYaml(content)) {
-                return content;
-            }
-        }
-        // Last resort: look for any content with schemas: root key
-        const lines = response.split('\n');
-        let yamlContent = [];
-        let inYaml = false;
-        let braceDepth = 0;
-        for (const line of lines) {
-            if (!inYaml && line.match(/^version:\s*["']?\d+\.\d+/)) {
-                inYaml = true;
-                yamlContent = [line];
-                continue;
-            }
-            if (inYaml) {
-                // Stop if we hit a line that's clearly not YAML
-                if (line.match(/^[A-Z][A-Z\s-]+:$/) && !line.startsWith('  ')) {
-                    // Might be a heading like "SCHEMA-DESIGN-APPROVED:"
-                    if (!line.includes('-DESIGN-') && !line.includes('_')) {
-                        break;
-                    }
-                }
-                // Stop at empty line followed by non-YAML content
-                if (line === '' && yamlContent.length > 0) {
-                    const nextIdx = lines.indexOf(line) + 1;
-                    if (nextIdx < lines.length) {
-                        const nextLine = lines[nextIdx];
-                        if (nextLine.match(/^[A-Z]/) && !nextLine.startsWith('  ')) {
-                            break;
-                        }
-                    }
-                }
-                yamlContent.push(line);
-            }
-        }
-        if (yamlContent.length > 0) {
-            const content = yamlContent.join('\n').trim();
-            if (this.looksLikeSchemasYaml(content)) {
-                return content;
-            }
-        }
-        return null;
+        const loader = new SchemaLoader();
+        return loader.extractSchemasYaml(response);
     }
     /**
      * Check if content looks like valid schemas.yaml
@@ -329,10 +439,8 @@ Begin the design discussion. Review the blueprint and propose an initial schema 
      * @returns True if content appears to be schemas.yaml
      */
     looksLikeSchemasYaml(content) {
-        // Must have version and schemas keys
-        const hasVersion = /^version:\s*["']?\d+\.\d+/m.test(content);
-        const hasSchemas = /^schemas:\s*$/m.test(content) || /^schemas:\s*\n/m.test(content);
-        return hasVersion && hasSchemas;
+        const loader = new SchemaLoader();
+        return loader.looksLikeSchemasYaml(content);
     }
     /**
      * Validate schemas.yaml structure
@@ -341,116 +449,45 @@ Begin the design discussion. Review the blueprint and propose an initial schema 
      * @returns Validation result
      */
     async validateSchemasYaml(yaml) {
-        const errors = [];
-        const warnings = [];
-        try {
-            // Parse YAML
-            const parsed = jsYaml.load(yaml);
-            // Check for required top-level keys
-            if (!parsed.version) {
-                errors.push('Missing required "version" field');
-            }
-            else if (!/^\d+\.\d+$/.test(String(parsed.version))) {
-                errors.push(`Invalid version format: "${parsed.version}". Expected format: "X.Y"`);
-            }
-            if (!parsed.schemas) {
-                errors.push('Missing required "schemas" field');
-            }
-            else if (typeof parsed.schemas !== 'object' || parsed.schemas === null) {
-                errors.push('"schemas" must be an object');
-            }
-            else {
-                const schemas = parsed.schemas;
-                const schemaNames = Object.keys(schemas);
-                if (schemaNames.length === 0) {
-                    errors.push('At least one schema must be defined');
-                }
-                // Check for base-document type
-                const hasBaseDoc = schemaNames.some((name) => name === 'base-doc' || name === 'base-document');
-                if (!hasBaseDoc) {
-                    warnings.push('Consider adding a "base-doc" schema with common fields (title, created, updated)');
-                }
-                // Validate each schema
-                for (const [name, schema] of Object.entries(schemas)) {
-                    // Validate schema name format
-                    if (!/^[a-z][a-z0-9-]*$/.test(name)) {
-                        errors.push(`Invalid schema name "${name}": must be lowercase alphanumeric with hyphens`);
-                    }
-                    // Validate schema structure
-                    if (typeof schema !== 'object' || schema === null) {
-                        errors.push(`Schema "${name}" must be an object`);
-                        continue;
-                    }
-                    const schemaObj = schema;
-                    // Check _extends references
-                    if (schemaObj._extends) {
-                        const extendsName = String(schemaObj._extends);
-                        if (!schemaNames.includes(extendsName)) {
-                            errors.push(`Schema "${name}" extends unknown schema "${extendsName}"`);
-                        }
-                    }
-                    // Check properties
-                    if (!schemaObj.properties) {
-                        warnings.push(`Schema "${name}" has no properties defined`);
-                    }
-                    else if (typeof schemaObj.properties !== 'object') {
-                        errors.push(`Schema "${name}" properties must be an object`);
-                    }
-                    else {
-                        const properties = schemaObj.properties;
-                        for (const [propName, propDef] of Object.entries(properties)) {
-                            // Validate property name
-                            if (!/^[a-z][a-z0-9_-]*$/.test(propName)) {
-                                errors.push(`Invalid property name "${propName}" in schema "${name}"`);
-                            }
-                            // Validate property definition
-                            if (typeof propDef !== 'object' || propDef === null) {
-                                errors.push(`Property "${propName}" in schema "${name}" must be an object`);
-                                continue;
-                            }
-                            const propObj = propDef;
-                            // Check required type field
-                            if (!propObj.type) {
-                                errors.push(`Property "${propName}" in schema "${name}" is missing required "type" field`);
-                            }
-                            else {
-                                const validTypes = [
-                                    'string',
-                                    'number',
-                                    'boolean',
-                                    'date',
-                                    'array',
-                                    'object',
-                                ];
-                                if (!validTypes.includes(String(propObj.type))) {
-                                    errors.push(`Invalid type "${propObj.type}" for property "${propName}" in schema "${name}"`);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        const loader = new SchemaLoader();
+        const schemas = loader.load(yaml);
+        if (!schemas) {
+            return {
+                valid: false,
+                errors: ['Failed to parse YAML or invalid schema structure'],
+                warnings: [],
+            };
         }
-        catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            errors.push(`YAML parse error: ${errorMessage}`);
-        }
-        return {
-            valid: errors.length === 0,
-            errors,
-            warnings,
-        };
+        return validateSchemas(schemas);
     }
     /**
      * Handle interactive approval of schemas
      *
      * @param schemasYaml - Generated schemas.yaml content
      * @param iterations - Number of iterations taken
+     * @param blueprint - Optional blueprint for target structure display
      * @returns Approval result
      */
-    async handleInteractiveApproval(schemasYaml, iterations) {
+    async handleInteractiveApproval(schemasYaml, iterations, blueprint) {
+        // Parse blueprint to extract target structure if provided
+        let targetStructure;
+        if (blueprint) {
+            try {
+                const blueprintData = safeLoad(blueprint);
+                if (blueprintData?.discovered_documents) {
+                    targetStructure = blueprintData.discovered_documents.map(doc => ({
+                        path: doc.path,
+                        targetPath: doc.target_path,
+                        type: doc.type,
+                    }));
+                }
+            }
+            catch {
+                // Ignore blueprint parsing errors, just don't show tree
+            }
+        }
         // Use the interactive handler's approveSchema method
-        const result = await this.interactive.approveSchema(schemasYaml, iterations);
+        const result = await this.interactive.approveSchema(schemasYaml, iterations, targetStructure);
         // The interactive module returns { approved: boolean, edited?: string }
         // with a special marker for "request more iterations"
         if (!result.approved && result.edited === '__REQUEST_MORE_ITERATIONS__') {
@@ -463,6 +500,29 @@ Begin the design discussion. Review the blueprint and propose an initial schema 
             approved: result.approved,
             edited: result.edited,
         };
+    }
+    /**
+     * Save intermediate checkpoint during design process
+     *
+     * @param schemasYaml - Current schemas.yaml content
+     * @param iterations - Number of iterations so far
+     * @param error - Optional error message
+     */
+    async saveIntermediateCheckpoint(schemasYaml, iterations, error) {
+        const description = error
+            ? `Schema design in progress (${iterations} iterations) - error: ${error}`
+            : `Schema design in progress (${iterations} iterations)`;
+        await this.stateManager.checkpoint(WorkflowStage.DESIGNING, description, {
+            design: {
+                complete: false,
+                schemasYaml,
+                iterations,
+                inProgress: true,
+            },
+            schemasYaml,
+            iterations,
+        });
+        logger.debug(`Saved intermediate checkpoint: ${iterations} iterations`);
     }
     /**
      * Save design state with checkpoint

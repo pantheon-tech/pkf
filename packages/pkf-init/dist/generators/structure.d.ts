@@ -1,6 +1,6 @@
 /**
  * PKF Init Structure Generator
- * Creates the PKF directory structure based on schemas.yaml
+ * Creates the PKF directory structure based on schemas.yaml and blueprint
  */
 /**
  * Result of structure generation
@@ -26,13 +26,21 @@ export declare class StructureGenerator {
     /**
      * Generate the directory structure based on schemas.yaml
      * @param schemasYaml - The schemas.yaml content
+     * @param blueprintYaml - Optional blueprint YAML for target path extraction
      * @returns Information about created and existing directories
      */
-    generate(schemasYaml: string): Promise<GeneratedStructure>;
+    generate(schemasYaml: string, blueprintYaml?: string): Promise<GeneratedStructure>;
+    /**
+     * Extract directories from blueprint target paths
+     * @param blueprintYaml - Blueprint YAML content
+     * @returns Set of required directory paths
+     */
+    private getDirectoriesFromBlueprint;
     /**
      * Analyze document types and determine required directories
+     * Uses centralized PKF type mapping
      * @param schemas - Parsed schemas object
-     * @returns List of required directory paths
+     * @returns Set of required directory paths
      */
     private getRequiredDirs;
     /**
@@ -43,9 +51,15 @@ export declare class StructureGenerator {
     private extractDocumentTypes;
     /**
      * Create directories recursively
-     * @param dirs - List of directories to create
+     * @param dirs - List of directories to create (sorted)
      * @returns Information about created and existing directories
      */
     createDirectories(dirs: string[]): Promise<GeneratedStructure>;
+    /**
+     * Generate structure from blueprint alone (without schemas)
+     * @param blueprintYaml - Blueprint YAML content
+     * @returns Information about created and existing directories
+     */
+    generateFromBlueprint(blueprintYaml: string): Promise<GeneratedStructure>;
 }
 //# sourceMappingURL=structure.d.ts.map

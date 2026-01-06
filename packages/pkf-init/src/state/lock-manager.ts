@@ -3,7 +3,8 @@
  * Prevents concurrent execution of pkf init using atomic file operations
  */
 
-import { writeFile, readFile, unlink, stat } from 'fs/promises';
+import { open, readFile, unlink } from 'fs/promises';
+import { constants } from 'fs';
 import { join } from 'path';
 import type { LockData } from '../types/index.js';
 
@@ -61,14 +62,21 @@ export class InitLockManager {
       version: VERSION,
     };
 
-    // Attempt atomic lock acquisition using exclusive write flag
+    // Attempt atomic lock acquisition using O_EXCL flag
+    // This ensures exclusive creation - if file exists, the operation fails atomically
     try {
-      await writeFile(this.lockPath, JSON.stringify(lockData, null, 2), {
-        flag: 'wx',
-        encoding: 'utf-8',
-      });
+      const fileHandle = await open(
+        this.lockPath,
+        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
+      );
+
+      try {
+        await fileHandle.writeFile(JSON.stringify(lockData, null, 2), 'utf-8');
+      } finally {
+        await fileHandle.close();
+      }
     } catch (error) {
-      // File already exists - race condition
+      // File already exists - another process holds the lock
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
         throw new Error('PKF initialization already in progress (race condition)');
       }

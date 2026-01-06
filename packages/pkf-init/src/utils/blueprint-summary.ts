@@ -6,7 +6,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import chalk from 'chalk';
-import * as yaml from 'js-yaml';
+import { safeLoad } from './yaml.js';
 
 /**
  * Parsed blueprint structure
@@ -48,11 +48,26 @@ interface ParsedBlueprint {
     name: string;
     description?: string;
   }>;
+  recommended_structure?: {
+    docs_root?: string;
+    directories?: Array<{
+      path: string;
+      purpose?: string;
+    }>;
+  };
   migration_plan?: Record<string, unknown>;
   warnings?: Array<{
     type?: string;
     message?: string;
   }>;
+}
+
+/**
+ * Directory in the recommended structure
+ */
+export interface RecommendedDirectory {
+  path: string;
+  purpose?: string;
 }
 
 /**
@@ -65,6 +80,8 @@ export interface BlueprintSummary {
   withFrontmatter: number;
   /** Document types with counts */
   documentTypes: Map<string, number>;
+  /** Recommended directory structure */
+  recommendedStructure: RecommendedDirectory[];
   /** Top recommendations */
   topRecommendations: string[];
   /** Overall migration complexity */
@@ -80,7 +97,7 @@ export interface BlueprintSummary {
  */
 export function extractBlueprintSummary(blueprintYaml: string): BlueprintSummary | null {
   try {
-    const parsed = yaml.load(blueprintYaml) as ParsedBlueprint;
+    const parsed = safeLoad(blueprintYaml) as ParsedBlueprint;
 
     if (!parsed || typeof parsed !== 'object') {
       return null;
@@ -156,10 +173,22 @@ export function extractBlueprintSummary(blueprintYaml: string): BlueprintSummary
       }
     }
 
+    // Extract recommended structure
+    const recommendedStructure: RecommendedDirectory[] = [];
+    if (parsed.recommended_structure?.directories) {
+      for (const dir of parsed.recommended_structure.directories) {
+        recommendedStructure.push({
+          path: dir.path,
+          purpose: dir.purpose,
+        });
+      }
+    }
+
     return {
       totalDocuments,
       withFrontmatter,
       documentTypes,
+      recommendedStructure,
       topRecommendations,
       migrationComplexity,
       warnings,
@@ -167,6 +196,64 @@ export function extractBlueprintSummary(blueprintYaml: string): BlueprintSummary
   } catch {
     return null;
   }
+}
+
+/**
+ * Build a tree structure from flat directory paths
+ */
+interface TreeNode {
+  name: string;
+  purpose?: string;
+  children: Map<string, TreeNode>;
+}
+
+/**
+ * Display directory tree in a space-efficient format
+ * @param directories - List of directories with paths and purposes
+ */
+function displayDirectoryTree(directories: RecommendedDirectory[]): void {
+  if (directories.length === 0) return;
+
+  // Build tree structure
+  const root: TreeNode = { name: '', children: new Map() };
+
+  for (const dir of directories) {
+    const parts = dir.path.split('/').filter(p => p);
+    let current = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!current.children.has(part)) {
+        current.children.set(part, {
+          name: part,
+          children: new Map(),
+        });
+      }
+      current = current.children.get(part)!;
+
+      // Add purpose to the leaf node
+      if (i === parts.length - 1 && dir.purpose) {
+        current.purpose = dir.purpose;
+      }
+    }
+  }
+
+  // Render tree
+  function renderNode(node: TreeNode, prefix: string, isLast: boolean, isRoot: boolean): void {
+    if (!isRoot) {
+      const connector = isLast ? '└── ' : '├── ';
+      const purposeText = node.purpose ? chalk.dim(` (${node.purpose})`) : '';
+      console.log(`  ${prefix}${chalk.cyan(connector)}${chalk.yellow(node.name)}/${purposeText}`);
+    }
+
+    const children = Array.from(node.children.values());
+    children.forEach((child, index) => {
+      const newPrefix = isRoot ? '' : prefix + (isLast ? '    ' : '│   ');
+      renderNode(child, newPrefix, index === children.length - 1, false);
+    });
+  }
+
+  renderNode(root, '', true, true);
 }
 
 /**
@@ -206,6 +293,14 @@ export function displayBlueprintSummary(
     if (sortedTypes.length > 8) {
       console.log(chalk.dim(`  ... and ${sortedTypes.length - 8} more types`));
     }
+    console.log();
+  }
+
+  // Recommended Structure (directory tree)
+  if (summary.recommendedStructure.length > 0) {
+    console.log(chalk.bold.white('Recommended Structure'));
+    console.log(chalk.gray('─'.repeat(40)));
+    displayDirectoryTree(summary.recommendedStructure);
     console.log();
   }
 

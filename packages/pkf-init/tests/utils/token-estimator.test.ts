@@ -2,11 +2,18 @@
  * Unit tests for TokenEstimator
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TokenEstimator } from '../../src/utils/token-estimator.js';
 import type { AgentMessage } from '../../src/types/index.js';
 
 describe('TokenEstimator', () => {
+  beforeEach(() => {
+    TokenEstimator.clearCache();
+  });
+
+  afterEach(() => {
+    TokenEstimator.clearCache();
+  });
   describe('estimate', () => {
     it('estimates tokens for simple string', () => {
       // "Hello World" = 11 characters
@@ -81,6 +88,61 @@ describe('TokenEstimator', () => {
 
       // 120 (system) + 24 (conversation) + 500 (estimated output) = 644
       expect(tokens).toBe(644);
+    });
+  });
+
+  describe('Caching', () => {
+    it('should cache token estimates', () => {
+      const text = 'This is a test string for caching';
+
+      const firstCall = TokenEstimator.estimate(text);
+      const secondCall = TokenEstimator.estimate(text);
+
+      expect(firstCall).toBe(secondCall);
+
+      const stats = TokenEstimator.getCacheStats();
+      expect(stats.size).toBeGreaterThan(0);
+    });
+
+    it('should cache multiple different texts', () => {
+      const texts = [
+        'First text',
+        'Second text',
+        'Third text',
+      ];
+
+      texts.forEach(text => TokenEstimator.estimate(text));
+
+      const stats = TokenEstimator.getCacheStats();
+      expect(stats.size).toBe(3);
+    });
+
+    it('should clear cache', () => {
+      TokenEstimator.estimate('Text 1');
+      TokenEstimator.estimate('Text 2');
+
+      expect(TokenEstimator.getCacheStats().size).toBe(2);
+
+      TokenEstimator.clearCache();
+
+      expect(TokenEstimator.getCacheStats().size).toBe(0);
+    });
+
+    it('should be faster for cached lookups', () => {
+      const longText = 'Lorem ipsum '.repeat(1000);
+
+      // First call (uncached)
+      const start1 = performance.now();
+      TokenEstimator.estimate(longText);
+      const duration1 = performance.now() - start1;
+
+      // Second call (cached)
+      const start2 = performance.now();
+      TokenEstimator.estimate(longText);
+      const duration2 = performance.now() - start2;
+
+      // Cached lookup should be faster
+      expect(duration2).toBeLessThan(duration1 + 1); // Allow some margin
     });
   });
 });

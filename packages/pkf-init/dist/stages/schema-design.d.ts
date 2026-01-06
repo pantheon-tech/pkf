@@ -62,6 +62,18 @@ export declare class SchemaDesignStage {
      */
     execute(blueprint: string): Promise<SchemaDesignResult>;
     /**
+     * Log a summary of the agent conversation
+     */
+    private logConversationSummary;
+    /**
+     * Extract key discussion points from agent output
+     */
+    private extractKeyDiscussionPoints;
+    /**
+     * Build a continuation prompt for additional iterations
+     */
+    private buildContinuationPrompt;
+    /**
      * Build the initial prompt for schema design
      *
      * @param blueprint - Documentation blueprint from Stage 1
@@ -94,9 +106,18 @@ export declare class SchemaDesignStage {
      *
      * @param schemasYaml - Generated schemas.yaml content
      * @param iterations - Number of iterations taken
+     * @param blueprint - Optional blueprint for target structure display
      * @returns Approval result
      */
     private handleInteractiveApproval;
+    /**
+     * Save intermediate checkpoint during design process
+     *
+     * @param schemasYaml - Current schemas.yaml content
+     * @param iterations - Number of iterations so far
+     * @param error - Optional error message
+     */
+    private saveIntermediateCheckpoint;
     /**
      * Save design state with checkpoint
      *

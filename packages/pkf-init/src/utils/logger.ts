@@ -5,8 +5,6 @@
 
 import chalk from 'chalk';
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
 let verboseMode = false;
 let streamingMode = false;
 let streamBuffer = '';
@@ -117,6 +115,7 @@ export function createLogger(prefix: string) {
 export function startStreaming(label?: string): void {
   streamingMode = true;
   streamBuffer = '';
+
   if (label) {
     console.log();
     console.log(chalk.dim(`┌─ ${label} ─────────────────────────────────`));
@@ -140,6 +139,7 @@ export function streamText(text: string): void {
       // Don't print empty trailing line
       continue;
     }
+
     if (i > 0) {
       // New line - add prefix
       process.stdout.write('\n' + chalk.dim('│ '));
@@ -176,22 +176,23 @@ export function isStreaming(): boolean {
 }
 
 /**
- * Create a stream callback function for the orchestrator
- * @param label - Optional label for the stream
- * @returns Callback function
+ * Create a callback for streaming text output
  */
 export function createStreamCallback(label?: string): (text: string) => void {
-  let started = false;
   return (text: string) => {
-    if (!started) {
+    if (!streamingMode) {
       startStreaming(label);
-      started = true;
     }
     streamText(text);
   };
 }
 
+/**
+ * Default export - object with all logger functions
+ */
 export default {
+  setVerbose,
+  isVerbose,
   debug,
   info,
   success,
@@ -201,8 +202,6 @@ export default {
   step,
   cost,
   tokens,
-  setVerbose,
-  isVerbose,
   createLogger,
   startStreaming,
   streamText,

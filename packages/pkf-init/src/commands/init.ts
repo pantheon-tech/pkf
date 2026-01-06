@@ -5,11 +5,13 @@
 
 import { Command } from 'commander';
 import type { InitOptions, WorkflowStage, WorkflowState } from '../types/index.js';
-import { WorkflowStage as WS } from '../types/index.js';
+import { AVAILABLE_MODELS, WorkflowStage as WS } from '../types/index.js';
+import { fetchAvailableModels, formatModelForDisplay } from '../api/model-fetcher.js';
 import logger from '../utils/logger.js';
 import { WorkflowStateManager } from '../state/workflow-state.js';
 import { InitLockManager } from '../state/lock-manager.js';
 import { ConfigLoader } from '../config/loader.js';
+import { loadPKFConfig } from '../config/pkf-config.js';
 import { AnthropicClient } from '../api/anthropic-client.js';
 import { RateLimiter } from '../api/rate-limiter.js';
 import { RequestQueue } from '../api/request-queue.js';
@@ -43,9 +45,67 @@ export const initCommand = new Command('init')
   .option('-v, --verbose', 'Verbose output')
   .option('-s, --stream', 'Stream agent output in real-time', true)
   .option('--no-stream', 'Disable streaming output')
+  .option('--debug', 'Debug mode: disable UI, save raw outputs')
+  .option('-m, --model <model>', 'Claude model to use (see --list-models)')
+  .option('--list-models', 'List available Claude models and exit')
+  .option('--custom-template-dir <path>', 'Custom template directory for document generation')
+  .option('-c, --config <path>', 'Path to PKF configuration file (YAML)')
   .action(async (options: InitOptions) => {
+    // Handle --list-models
+    if (options.listModels) {
+      await listModels(options.apiKey);
+      return;
+    }
     await runInit(options);
   });
+
+/**
+ * List available models from API or fallback to hardcoded list
+ * @param apiKey - Optional API key (uses env if not provided)
+ */
+async function listModels(apiKey?: string): Promise<void> {
+  const key = apiKey || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+
+  console.log('\nAvailable Claude Models:');
+  console.log('─'.repeat(70));
+
+  if (key) {
+    // Try to fetch from API
+    console.log('Fetching models from Anthropic API...\n');
+    const apiModels = await fetchAvailableModels(key);
+
+    if (apiModels && apiModels.length > 0) {
+      for (const model of apiModels) {
+        const formatted = formatModelForDisplay(model);
+        const rec = formatted.recommended ? ' (Recommended)' : '';
+        console.log(`  ${formatted.name}${rec}`);
+        console.log(`    ${formatted.description}`);
+        console.log(`    Cost: $${formatted.inputCost}/$${formatted.outputCost} per 1M tokens (in/out)`);
+        console.log(`    ID:   ${formatted.id}`);
+        console.log(`    Released: ${new Date(formatted.createdAt).toLocaleDateString()}`);
+        console.log('');
+      }
+      console.log(`Total: ${apiModels.length} models available`);
+      console.log('\nUse --model <ID> to select a model.\n');
+      return;
+    }
+
+    console.log('Could not fetch from API, showing known models:\n');
+  } else {
+    console.log('(Set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN to fetch live model list)\n');
+  }
+
+  // Fallback to hardcoded list
+  for (const model of AVAILABLE_MODELS) {
+    const rec = model.recommended ? ' (Recommended)' : '';
+    console.log(`  ${model.name}${rec}`);
+    console.log(`    ${model.description}`);
+    console.log(`    Cost: $${model.inputCostPerMillion}/$${model.outputCostPerMillion} per 1M tokens (in/out)`);
+    console.log(`    ID:   ${model.id}`);
+    console.log('');
+  }
+  console.log('\nUse --model <ID> to select a model.\n');
+}
 
 /**
  * Run the init command
@@ -58,6 +118,10 @@ export async function runInit(options: InitOptions): Promise<void> {
   }
 
   logger.debug('Init options:', options);
+
+  // Load PKF configuration (with configurable constants)
+  const pkfConfig = await loadPKFConfig(options.config);
+  logger.debug('Loaded PKF config:', pkfConfig);
 
   // Load configuration
   const configLoader = new ConfigLoader(options);
@@ -75,7 +139,8 @@ export async function runInit(options: InitOptions): Promise<void> {
     // Dry run mode - analyze and show estimate
     if (options.dryRun) {
       logger.info('Dry run mode - analyzing project...');
-      const dryRunReport = new DryRunReport(config);
+      // Pass API key for accurate token counting (uses Token Count API)
+      const dryRunReport = new DryRunReport(config, config.apiKey);
       const estimate = await dryRunReport.analyze(config.rootDir);
       dryRunReport.displayReport(estimate);
       logger.info('No changes will be made.');
@@ -84,20 +149,32 @@ export async function runInit(options: InitOptions): Promise<void> {
 
     const stateManager = new WorkflowStateManager(config.rootDir);
 
-    // Create core components
-    const client = new AnthropicClient(config.apiKey);
+    // Create core components with PKF config
+    const client = new AnthropicClient(config.apiKey, {
+      useOAuth: config.useOAuth,
+      maxRetries: pkfConfig.api.maxRetries,
+      retryDelayMs: pkfConfig.api.retryDelayMs,
+      timeout: pkfConfig.api.timeout,
+    });
     const rateLimiter = new RateLimiter(config.apiTier);
     const costTracker = new CostTracker(config.maxCost);
 
     // Configure streaming if enabled (default: true)
-    const streamingEnabled = options.stream !== false;
-    const streamCallback = streamingEnabled
+    // Debug mode disables terminal UI output but keeps API streaming (required for long calls)
+    const debugMode = options.debug === true;
+    const streamingEnabled = options.stream !== false; // Always keep streaming for API
+    const streamCallback = (!debugMode && streamingEnabled)
       ? logger.createStreamCallback('Agent Output')
-      : undefined;
+      : undefined; // In debug mode, no terminal output but API still streams
+
+    if (debugMode) {
+      logger.info('Debug mode enabled - terminal UI disabled, API streaming enabled');
+    }
 
     const orchestrator = new AgentOrchestrator(client, rateLimiter, costTracker, {
       streaming: streamingEnabled,
       onStream: streamCallback,
+      pkfConfig,
     });
     const interactive = new Interactive(options.interactive ?? false);
     const requestQueue = new RequestQueue(rateLimiter, config.workers);
@@ -120,9 +197,12 @@ export async function runInit(options: InitOptions): Promise<void> {
         // Restore intermediate results from state
         if (state.analysis?.blueprint) {
           blueprint = state.analysis.blueprint;
+          logger.info(`Restored blueprint from checkpoint`);
         }
         if (state.design?.schemasYaml) {
           schemasYaml = state.design.schemasYaml;
+          const status = state.design.complete ? 'completed' : 'in progress';
+          logger.info(`Restored schemas from checkpoint (${status})`);
         }
       } else {
         logger.warn('No previous state found. Starting fresh.');
@@ -182,7 +262,8 @@ export async function runInit(options: InitOptions): Promise<void> {
           orchestrator,
           stateManager,
           config,
-          interactive
+          interactive,
+          { debug: debugMode, pkfConfig }
         );
 
         const analysisResult = await analysisStage.execute();
@@ -227,7 +308,11 @@ export async function runInit(options: InitOptions): Promise<void> {
     // =========================================================================
     // Stage 2: Schema Design
     // =========================================================================
-    if (currentStageIndex <= stageOrder.indexOf(WS.DESIGNING) && !state.design?.complete) {
+    // Run schema design if not complete OR if we have partial progress
+    const shouldRunSchemaDesign = currentStageIndex <= stageOrder.indexOf(WS.DESIGNING) &&
+      (!state.design?.complete || (state.design?.inProgress && !state.design?.complete));
+
+    if (shouldRunSchemaDesign) {
       try {
         const schemaDesignStage = new SchemaDesignStage(
           orchestrator,
@@ -261,8 +346,12 @@ export async function runInit(options: InitOptions): Promise<void> {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(`Schema design stage failed: ${errorMessage}`);
         state.currentStage = WS.FAILED;
+        state.totalCost = costTracker.getTotalCost();
+        state.totalTokens = costTracker.getTotalTokens();
         await stateManager.save(state);
         logger.info('State saved. You can resume with --resume flag.');
+        logger.info(`Total cost so far: $${state.totalCost.toFixed(4)}`);
+        logger.info(`Total tokens: ${state.totalTokens.toLocaleString()}`);
         throw error;
       }
     } else if (state.design?.schemasYaml) {
@@ -333,27 +422,38 @@ export async function runInit(options: InitOptions): Promise<void> {
           stateManager,
           config,
           interactive,
-          requestQueue
+          requestQueue,
+          pkfConfig
         );
 
         const migrationResult = await migrationStage.execute(blueprint, schemasYaml);
 
-        if (!migrationResult.success && migrationResult.failedCount > 0) {
-          logger.warn(`Migration completed with ${migrationResult.failedCount} failures`);
+        // Check for migration failures
+        if (!migrationResult.success) {
+          if (migrationResult.errors && migrationResult.errors.length > 0) {
+            // Pre-validation or other errors occurred
+            throw new Error(`Migration failed: ${migrationResult.errors.join('; ')}`);
+          } else if (migrationResult.failedCount > 0) {
+            logger.warn(`Migration completed with ${migrationResult.failedCount} failures`);
+          }
         }
 
         // Update state
         state.migration = {
-          complete: true,
+          complete: migrationResult.success,
           completedCount: migrationResult.migratedCount,
           totalCount: migrationResult.migratedCount + migrationResult.failedCount,
         };
-        state.currentStage = WS.COMPLETED;
+        state.currentStage = migrationResult.success ? WS.COMPLETED : WS.FAILED;
         state.totalCost = costTracker.getTotalCost();
         state.totalTokens = costTracker.getTotalTokens();
         await stateManager.save(state);
 
-        logger.success('Stage 4 (Migration) completed');
+        if (migrationResult.success) {
+          logger.success('Stage 4 (Migration) completed');
+        } else {
+          logger.warn('Stage 4 (Migration) completed with issues');
+        }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(`Migration stage failed: ${errorMessage}`);
@@ -373,7 +473,19 @@ export async function runInit(options: InitOptions): Promise<void> {
     logger.info('');
     logger.info('Summary:');
     logger.info(`  Total cost: $${costTracker.getTotalCost().toFixed(4)}`);
-    logger.info(`  Total tokens: ${costTracker.getTotalTokens().toLocaleString()}`);
+    logger.info(`  Input tokens: ${costTracker.getTotalInputTokens().toLocaleString()}`);
+    logger.info(`  Output tokens: ${costTracker.getTotalOutputTokens().toLocaleString()}`);
+
+    const cacheTokens = costTracker.getCacheTokens();
+    if (cacheTokens.cacheReadTokens > 0 || cacheTokens.cacheCreationTokens > 0) {
+      logger.info(`  Cache read: ${cacheTokens.cacheReadTokens.toLocaleString()} tokens`);
+      logger.info(`  Cache written: ${cacheTokens.cacheCreationTokens.toLocaleString()} tokens`);
+      const savings = costTracker.getEstimatedCacheSavings();
+      if (savings > 0) {
+        logger.info(`  Cache savings: $${savings.toFixed(4)}`);
+      }
+    }
+
     if (state.analysis?.discoveredDocs) {
       logger.info(`  Documents analyzed: ${state.analysis.discoveredDocs.length}`);
     }

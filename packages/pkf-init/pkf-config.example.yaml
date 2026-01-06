@@ -1,0 +1,54 @@
+# PKF Configuration Example
+# This file demonstrates how to configure PKF constants for your project.
+# Copy this file to your project root and modify values as needed.
+# Usage: pkf-init -c path/to/pkf-config.yaml
+
+# Analysis stage configuration
+analysis:
+  # Maximum number of parallel document inspections
+  # Higher values = faster but more API usage
+  # Default: 3
+  maxParallelInspections: 3
+
+# Orchestration configuration
+orchestration:
+  # Maximum iterations for agent conversations
+  # Higher values allow more complex negotiations but increase cost
+  # Default: 5
+  maxIterations: 5
+
+# Planning configuration
+planning:
+  # Average output tokens per document for cost estimation
+  # Adjust based on your typical document complexity
+  # Default: 1000
+  avgOutputTokensPerDoc: 1000
+
+# API client configuration
+api:
+  # Maximum number of retry attempts for failed API calls
+  # Set to 0 to disable retries
+  # Default: 3
+  maxRetries: 3
+
+  # Base delay between retries in milliseconds
+  # Uses exponential backoff (delay * 2^attempt)
+  # Default: 1000
+  retryDelayMs: 1000
+
+  # API request timeout in milliseconds
+  # Long-running operations (like schema design) may need 30+ minutes
+  # Set to 0 to disable timeout entirely (not recommended)
+  # Default: 1800000 (30 minutes)
+  timeout: 1800000
+
+# Environment Variable Overrides
+# You can also override these values using environment variables:
+# - PKF_MAX_PARALLEL_INSPECTIONS
+# - PKF_MAX_ITERATIONS
+# - PKF_AVG_OUTPUT_TOKENS_PER_DOC
+# - PKF_MAX_RETRIES
+# - PKF_RETRY_DELAY_MS
+# - PKF_API_TIMEOUT
+#
+# Environment variables take precedence over file configuration.

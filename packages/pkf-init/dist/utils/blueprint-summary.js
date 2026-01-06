@@ -5,7 +5,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import chalk from 'chalk';
-import * as yaml from 'js-yaml';
+import { safeLoad } from './yaml.js';
 /**
  * Extract summary from blueprint YAML
  * @param blueprintYaml - Raw YAML string
@@ -13,7 +13,7 @@ import * as yaml from 'js-yaml';
  */
 export function extractBlueprintSummary(blueprintYaml) {
     try {
-        const parsed = yaml.load(blueprintYaml);
+        const parsed = safeLoad(blueprintYaml);
         if (!parsed || typeof parsed !== 'object') {
             return null;
         }
@@ -85,10 +85,21 @@ export function extractBlueprintSummary(blueprintYaml) {
                 }
             }
         }
+        // Extract recommended structure
+        const recommendedStructure = [];
+        if (parsed.recommended_structure?.directories) {
+            for (const dir of parsed.recommended_structure.directories) {
+                recommendedStructure.push({
+                    path: dir.path,
+                    purpose: dir.purpose,
+                });
+            }
+        }
         return {
             totalDocuments,
             withFrontmatter,
             documentTypes,
+            recommendedStructure,
             topRecommendations,
             migrationComplexity,
             warnings,
@@ -97,6 +108,48 @@ export function extractBlueprintSummary(blueprintYaml) {
     catch {
         return null;
     }
+}
+/**
+ * Display directory tree in a space-efficient format
+ * @param directories - List of directories with paths and purposes
+ */
+function displayDirectoryTree(directories) {
+    if (directories.length === 0)
+        return;
+    // Build tree structure
+    const root = { name: '', children: new Map() };
+    for (const dir of directories) {
+        const parts = dir.path.split('/').filter(p => p);
+        let current = root;
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            if (!current.children.has(part)) {
+                current.children.set(part, {
+                    name: part,
+                    children: new Map(),
+                });
+            }
+            current = current.children.get(part);
+            // Add purpose to the leaf node
+            if (i === parts.length - 1 && dir.purpose) {
+                current.purpose = dir.purpose;
+            }
+        }
+    }
+    // Render tree
+    function renderNode(node, prefix, isLast, isRoot) {
+        if (!isRoot) {
+            const connector = isLast ? '└── ' : '├── ';
+            const purposeText = node.purpose ? chalk.dim(` (${node.purpose})`) : '';
+            console.log(`  ${prefix}${chalk.cyan(connector)}${chalk.yellow(node.name)}/${purposeText}`);
+        }
+        const children = Array.from(node.children.values());
+        children.forEach((child, index) => {
+            const newPrefix = isRoot ? '' : prefix + (isLast ? '    ' : '│   ');
+            renderNode(child, newPrefix, index === children.length - 1, false);
+        });
+    }
+    renderNode(root, '', true, true);
 }
 /**
  * Display blueprint summary to console
@@ -128,6 +181,13 @@ export function displayBlueprintSummary(summary, blueprintPath) {
         if (sortedTypes.length > 8) {
             console.log(chalk.dim(`  ... and ${sortedTypes.length - 8} more types`));
         }
+        console.log();
+    }
+    // Recommended Structure (directory tree)
+    if (summary.recommendedStructure.length > 0) {
+        console.log(chalk.bold.white('Recommended Structure'));
+        console.log(chalk.gray('─'.repeat(40)));
+        displayDirectoryTree(summary.recommendedStructure);
         console.log();
     }
     // Recommendations

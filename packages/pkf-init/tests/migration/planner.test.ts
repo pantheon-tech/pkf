@@ -115,8 +115,7 @@ documents:
       const blueprint = `
 documents:
   - path: docs/api/authentication.md
-  - path: api-docs/endpoints.md
-  - path: reference/api.md
+  - path: api/endpoints.md
 `;
 
       const plan = await planner.createPlan(blueprint);
@@ -132,13 +131,26 @@ documents:
   - path: docs/architecture/overview.md
   - path: architecture/components.md
   - path: design/database.md
-  - path: adr/001-use-postgres.md
 `;
 
       const plan = await planner.createPlan(blueprint);
 
       for (const task of plan.tasks) {
         expect(task.docType).toBe('architecture');
+      }
+    });
+
+    it('maps adr/* to adr type', async () => {
+      const blueprint = `
+documents:
+  - path: adr/001-use-postgres.md
+  - path: decisions/002-use-react.md
+`;
+
+      const plan = await planner.createPlan(blueprint);
+
+      for (const task of plan.tasks) {
+        expect(task.docType).toBe('adr');
       }
     });
 
@@ -164,7 +176,7 @@ documents:
       expect(readmeTask?.targetPath).toContain('README.md');
     });
 
-    it('calculates correct priorities (README = 0, guides = 1, etc.)', async () => {
+    it('calculates correct priorities (README = 0, guides = 2, api = 3)', async () => {
       const blueprint = `
 documents:
   - path: README.md
@@ -179,13 +191,16 @@ documents:
       const readmeTask = plan.tasks.find(t => t.sourcePath === 'README.md');
       const guideTask = plan.tasks.find(t => t.sourcePath === 'docs/guides/user-guide.md');
       const apiTask = plan.tasks.find(t => t.sourcePath === 'docs/api/endpoints.md');
+      const archTask = plan.tasks.find(t => t.sourcePath === 'docs/architecture/overview.md');
 
-      // README files get priority 0 (highest)
+      // README files get priority 0 (highest, boosted for root)
       expect(readmeTask?.priority).toBe(0);
-      // Guide files get priority 1
-      expect(guideTask?.priority).toBe(1);
-      // API reference files get priority 2
-      expect(apiTask?.priority).toBe(2);
+      // Guide files get priority 2
+      expect(guideTask?.priority).toBe(2);
+      // API reference files get priority 3
+      expect(apiTask?.priority).toBe(3);
+      // Architecture files get priority 2
+      expect(archTask?.priority).toBe(2);
 
       // Verify tasks are sorted by priority
       for (let i = 1; i < plan.tasks.length; i++) {

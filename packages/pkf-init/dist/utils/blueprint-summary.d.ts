@@ -3,6 +3,13 @@
  * Creates concise summaries of PKF blueprints for terminal display
  */
 /**
+ * Directory in the recommended structure
+ */
+export interface RecommendedDirectory {
+    path: string;
+    purpose?: string;
+}
+/**
  * Blueprint summary for display
  */
 export interface BlueprintSummary {
@@ -12,6 +19,8 @@ export interface BlueprintSummary {
     withFrontmatter: number;
     /** Document types with counts */
     documentTypes: Map<string, number>;
+    /** Recommended directory structure */
+    recommendedStructure: RecommendedDirectory[];
     /** Top recommendations */
     topRecommendations: string[];
     /** Overall migration complexity */

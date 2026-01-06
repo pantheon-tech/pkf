@@ -161,9 +161,60 @@ export interface ModelPricing {
 }
 
 /**
- * Supported Claude models
+ * Known Claude models (for type safety with our hardcoded list)
  */
-export type ClaudeModel = 'claude-sonnet-4-20250514' | 'claude-haiku-3-5-20241022' | 'claude-opus-4-20250514';
+export type KnownClaudeModel =
+  | 'claude-sonnet-4-5-20250929'
+  | 'claude-haiku-4-5-20251001'
+  | 'claude-opus-4-5-20251101'
+  | 'claude-sonnet-4-20250514'
+  | 'claude-opus-4-20250514';
+
+/**
+ * Claude model type - any valid model ID string
+ * Can be a known model or any model ID from the API
+ */
+export type ClaudeModel = KnownClaudeModel | (string & {});
+
+/**
+ * Model display information for UI
+ */
+export interface ModelInfo {
+  id: ClaudeModel;
+  name: string;
+  description: string;
+  inputCostPerMillion: number;
+  outputCostPerMillion: number;
+  recommended?: boolean;
+}
+
+/**
+ * Available models with metadata
+ */
+export const AVAILABLE_MODELS: ModelInfo[] = [
+  {
+    id: 'claude-sonnet-4-5-20250929',
+    name: 'Claude Sonnet 4.5',
+    description: 'Balanced - best for most tasks',
+    inputCostPerMillion: 3,
+    outputCostPerMillion: 15,
+    recommended: true,
+  },
+  {
+    id: 'claude-opus-4-5-20251101',
+    name: 'Claude Opus 4.5',
+    description: 'Most capable - complex reasoning',
+    inputCostPerMillion: 15,
+    outputCostPerMillion: 75,
+  },
+  {
+    id: 'claude-haiku-4-5-20251001',
+    name: 'Claude Haiku 4.5',
+    description: 'Fast and cost-effective',
+    inputCostPerMillion: 1,
+    outputCostPerMillion: 5,
+  },
+];
 
 /**
  * Agent configuration
@@ -179,6 +230,8 @@ export interface AgentConfig {
   temperature: number;
   /** Maximum output tokens */
   maxTokens: number;
+  /** Enable prompt caching for batch operations */
+  enableCaching?: boolean;
 }
 
 /**
@@ -207,6 +260,10 @@ export interface AgentResult {
   inputTokens?: number;
   /** Output tokens */
   outputTokens?: number;
+  /** Tokens used to create cache (first call) */
+  cacheCreationTokens?: number;
+  /** Tokens read from cache (subsequent calls) */
+  cacheReadTokens?: number;
   /** Error message if failed */
   error?: string;
   /** Additional metadata */
@@ -259,6 +316,16 @@ export interface InitOptions {
   verbose?: boolean;
   /** Stream agent output in real-time */
   stream?: boolean;
+  /** Claude model to use */
+  model?: ClaudeModel;
+  /** List available models and exit */
+  listModels?: boolean;
+  /** Debug mode: disable UI, save raw outputs */
+  debug?: boolean;
+  /** Custom template directory */
+  customTemplateDir?: string;
+  /** PKF configuration file path */
+  config?: string;
 }
 
 /**
@@ -267,6 +334,8 @@ export interface InitOptions {
 export interface LoadedConfig {
   /** Anthropic API key */
   apiKey: string;
+  /** Whether to use OAuth authentication (from CLAUDE_CODE_OAUTH_TOKEN) */
+  useOAuth: boolean;
   /** API tier */
   apiTier: ApiTier;
   /** Root directory */
@@ -283,6 +352,8 @@ export interface LoadedConfig {
   workers: number;
   /** Whether PKF is already initialized */
   pkfInitialized: boolean;
+  /** Custom template directory (optional) */
+  customTemplateDir?: string;
 }
 
 /**
@@ -323,3 +394,268 @@ export type ProgressCallback = (
   message: string,
   progress?: { current: number; total: number }
 ) => void;
+
+// ============================================================================
+// Reorganization Types
+// ============================================================================
+
+/**
+ * Blueprint document entry with target path
+ */
+export interface DocumentWithTarget {
+  /** Source path (current location) */
+  path: string;
+  /** Target path in PKF structure */
+  targetPath: string;
+  /** Document type */
+  type: string;
+  /** Document title */
+  title?: string;
+  /** Whether file has existing frontmatter */
+  hasFrontmatter: boolean;
+  /** Document complexity */
+  complexity: 'simple' | 'medium' | 'complex';
+  /** Migration effort required */
+  migrationEffort: 'low' | 'medium' | 'high';
+  /** Confidence of classification */
+  inspectionConfidence?: number;
+  /** Key sections identified */
+  sections?: string[];
+  /** Analyst notes */
+  notes?: string;
+}
+
+/**
+ * Cross-reference link in a document
+ */
+export interface CrossReference {
+  /** File containing the link */
+  sourceFile: string;
+  /** File being linked to */
+  targetFile: string;
+  /** Link text displayed */
+  linkText: string;
+  /** Original path in link */
+  originalPath: string;
+  /** Updated path after reorganization */
+  newPath?: string;
+  /** Line number where link appears */
+  lineNumber: number;
+  /** Column where link starts */
+  columnStart?: number;
+  /** Column where link ends */
+  columnEnd?: number;
+}
+
+/**
+ * Type of migration operation
+ */
+export type MigrationOperationType = 'copy' | 'move' | 'delete' | 'update_reference' | 'add_frontmatter' | 'write';
+
+/**
+ * Single migration operation for manifest
+ */
+export interface MigrationOperation {
+  /** Type of operation */
+  type: MigrationOperationType;
+  /** Source file path */
+  sourcePath: string;
+  /** Target file path (for copy/move) */
+  targetPath?: string;
+  /** Original content (for rollback of reference updates) */
+  originalContent?: string;
+  /** New content (for reference updates) */
+  newContent?: string;
+  /** Operation status */
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'rolled_back';
+  /** Error message if failed */
+  error?: string;
+  /** Timestamp when operation was executed */
+  executedAt?: string;
+  /** Alias for executedAt */
+  timestamp?: string;
+}
+
+/**
+ * Migration manifest for rollback support
+ */
+export interface MigrationManifest {
+  /** Manifest version */
+  version: string;
+  /** When migration started */
+  timestamp: string;
+  /** Project root directory */
+  rootDir: string;
+  /** Backup directory */
+  backupDir?: string;
+  /** List of operations in execution order */
+  operations: MigrationOperation[];
+  /** Overall status */
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'rolled_back';
+  /** Summary statistics */
+  summary?: {
+    filesMoved: number;
+    filesUpdated: number;
+    referencesUpdated: number;
+    errors: number;
+  };
+}
+
+/**
+ * Extended migration task with reorganization details
+ */
+export interface ReorganizationTask extends MigrationTask {
+  /** Whether file needs to be moved */
+  needsMove: boolean;
+  /** Whether file needs frontmatter added */
+  needsFrontmatter: boolean;
+  /** Whether file needs to be created (doesn't exist yet) */
+  needsCreation: boolean;
+  /** Whether references in file need updating */
+  needsReferenceUpdate: boolean;
+  /** Links in this file pointing to other files */
+  outgoingReferences: CrossReference[];
+  /** Other files linking to this file */
+  incomingReferences: CrossReference[];
+  /** Rollback data for this task */
+  rollbackData?: MigrationOperation[];
+  /** Task priority (lower = higher priority) */
+  priority?: number;
+  /** Estimated tokens for AI operations */
+  estimatedTokens?: number;
+}
+
+/**
+ * Reference map for tracking all cross-references
+ */
+export interface ReferenceMap {
+  /** Map of file path to files it references */
+  outgoing: Map<string, CrossReference[]>;
+  /** Map of file path to files that reference it */
+  incoming: Map<string, CrossReference[]>;
+  /** All unique file paths involved */
+  allFiles: Set<string>;
+}
+
+/**
+ * Conflict detected during pre-migration validation
+ */
+export interface MigrationConflict {
+  /** Type of conflict */
+  type?: 'target_exists' | 'circular_move' | 'missing_source' | 'permission_denied';
+  /** Source path */
+  sourcePath: string;
+  /** Target path */
+  targetPath: string;
+  /** Description of the conflict (alias for message) */
+  reason: string;
+  /** Description of the conflict */
+  message?: string;
+  /** Suggested resolution */
+  suggestion?: string;
+}
+
+/**
+ * Result of pre-migration validation
+ */
+export interface PreMigrationValidation {
+  /** Whether validation passed */
+  valid: boolean;
+  /** List of conflicts found */
+  conflicts: MigrationConflict[];
+  /** Files that are ready to migrate */
+  readyFiles: string[];
+  /** Warnings (non-blocking issues) */
+  warnings: string[];
+}
+
+/**
+ * Result of move operation
+ */
+export interface MoveResult {
+  /** Whether move succeeded */
+  success: boolean;
+  /** Operation details */
+  operation: MigrationOperation;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Result of reference update operation
+ */
+export interface ReferenceUpdateResult {
+  /** File that was updated */
+  filePath: string;
+  /** Number of references updated */
+  updatedCount: number;
+  /** References that were updated */
+  updates: Array<{
+    original: string;
+    updated: string;
+    lineNumber: number;
+  }>;
+  /** Whether update succeeded */
+  success: boolean;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Broken link found during validation
+ */
+export interface BrokenLink {
+  /** File containing the broken link */
+  sourceFile: string;
+  /** The broken link path */
+  linkPath: string;
+  /** Line number */
+  lineNumber: number;
+  /** Suggested fix if available */
+  suggestion?: string;
+}
+
+/**
+ * Result of post-migration validation
+ */
+export interface PostMigrationValidation {
+  /** Whether all validations passed */
+  valid: boolean;
+  /** Files that are now valid */
+  validFiles: number;
+  /** Files with issues */
+  invalidFiles: number;
+  /** Total files checked */
+  totalFiles: number;
+  /** Broken links found */
+  brokenLinks: BrokenLink[];
+  /** Files missing frontmatter */
+  missingFrontmatter: string[];
+  /** Other errors */
+  errors: Array<{
+    filePath: string;
+    errors: string[];
+  }>;
+}
+
+/**
+ * Dry run report for reorganization
+ */
+export interface ReorganizationDryRunReport {
+  /** Files that would be moved */
+  filesToMove: Array<{ from: string; to: string }>;
+  /** Files that would stay in place */
+  filesToKeep: string[];
+  /** Directories that would be created */
+  directoriesToCreate: string[];
+  /** Directories that would become empty */
+  directoriesToRemove: string[];
+  /** References that would be updated */
+  referencesToUpdate: Array<{ file: string; count: number }>;
+  /** Conflicts that would block migration */
+  conflicts: MigrationConflict[];
+  /** Estimated API cost */
+  estimatedCost: number;
+  /** Estimated time in minutes */
+  estimatedTimeMinutes: number;
+}

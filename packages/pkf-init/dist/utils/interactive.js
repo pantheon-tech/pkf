@@ -4,6 +4,7 @@
  */
 import inquirer from 'inquirer';
 import chalk from 'chalk';
+import { AVAILABLE_MODELS } from '../types/index.js';
 /**
  * Interactive mode handler for PKF initialization workflow
  * Provides approval gates and user interaction at each stage
@@ -86,15 +87,24 @@ export class Interactive {
     /**
      * Stage 2 approval: Review and approve generated schemas
      */
-    async approveSchema(schemasYaml, iterations) {
+    async approveSchema(schemasYaml, iterations, targetStructure) {
         if (!this.enabled) {
             return { approved: true };
         }
         console.log('');
         console.log(chalk.cyan.bold('Stage 2: Schema Review'));
-        console.log(chalk.gray('─'.repeat(40)));
+        console.log(chalk.gray('─'.repeat(50)));
         console.log(`  ${chalk.white('Iterations:')} ${chalk.yellow(iterations.toString())}`);
         console.log('');
+        // Display target structure tree if provided
+        if (targetStructure && targetStructure.length > 0) {
+            console.log(chalk.white.bold('Target Documentation Structure:'));
+            console.log('');
+            this.displayStructureTree(targetStructure);
+            console.log('');
+            console.log(chalk.gray('─'.repeat(50)));
+            console.log('');
+        }
         console.log(chalk.gray('Generated schemas.yaml:'));
         console.log('');
         console.log(this.formatYamlPreview(schemasYaml));
@@ -132,6 +142,73 @@ export class Interactive {
             return { approved: true, edited };
         }
         return { approved: true };
+    }
+    /**
+     * Display target structure as a tree
+     */
+    displayStructureTree(docs) {
+        const root = { name: 'docs', children: new Map(), isFile: false };
+        // Build tree
+        for (const doc of docs) {
+            const parts = doc.targetPath.split('/').filter(p => p);
+            let current = root;
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                const isFile = i === parts.length - 1;
+                if (!current.children.has(part)) {
+                    current.children.set(part, {
+                        name: part,
+                        children: new Map(),
+                        isFile,
+                        type: isFile ? doc.type : undefined,
+                        sourceFile: isFile ? doc.path : undefined,
+                    });
+                }
+                current = current.children.get(part);
+            }
+        }
+        // Render tree
+        const renderNode = (node, prefix, isLast) => {
+            const connector = isLast ? '└── ' : '├── ';
+            const childPrefix = isLast ? '    ' : '│   ';
+            if (node.isFile) {
+                const typeLabel = node.type ? chalk.dim(` (${node.type})`) : '';
+                console.log(`${prefix}${connector}${chalk.green(node.name)}${typeLabel}`);
+            }
+            else {
+                console.log(`${prefix}${connector}${chalk.blue(node.name)}/`);
+            }
+            const children = Array.from(node.children.values());
+            // Sort: directories first, then files, alphabetically within each group
+            children.sort((a, b) => {
+                if (a.isFile !== b.isFile)
+                    return a.isFile ? 1 : -1;
+                return a.name.localeCompare(b.name);
+            });
+            for (let i = 0; i < children.length; i++) {
+                renderNode(children[i], prefix + childPrefix, i === children.length - 1);
+            }
+        };
+        // Render from root
+        console.log(chalk.blue('docs/'));
+        const rootChildren = Array.from(root.children.values());
+        rootChildren.sort((a, b) => {
+            if (a.isFile !== b.isFile)
+                return a.isFile ? 1 : -1;
+            return a.name.localeCompare(b.name);
+        });
+        for (let i = 0; i < rootChildren.length; i++) {
+            renderNode(rootChildren[i], '', i === rootChildren.length - 1);
+        }
+        // Show summary
+        console.log('');
+        const fileCount = docs.length;
+        const dirCount = new Set(docs.map(d => {
+            const parts = d.targetPath.split('/');
+            parts.pop(); // Remove filename
+            return parts.join('/');
+        })).size;
+        console.log(chalk.gray(`  ${fileCount} files across ${dirCount} directories`));
     }
     /**
      * Stage 3 approval: Review and approve directory/file structure
@@ -327,6 +404,81 @@ export class Interactive {
             failed: 'Failed',
         };
         return labels[stage] || stage;
+    }
+    /**
+     * Prompt user to select a Claude model
+     * @param defaultModel - Default model to pre-select
+     * @returns Selected model ID or null if cancelled
+     */
+    async selectModel(defaultModel) {
+        if (!this.enabled) {
+            return defaultModel ?? 'claude-sonnet-4-5-20250929';
+        }
+        console.log('');
+        console.log(chalk.cyan.bold('Select Claude Model'));
+        console.log(chalk.gray('─'.repeat(50)));
+        console.log('');
+        console.log(chalk.gray('Models are listed with input/output cost per 1M tokens.'));
+        console.log('');
+        // Build choices with formatted pricing
+        const choices = AVAILABLE_MODELS.map((model) => {
+            const priceTag = chalk.dim(`$${model.inputCostPerMillion}/$${model.outputCostPerMillion}`);
+            const recommended = model.recommended ? chalk.green(' (Recommended)') : '';
+            const name = `${model.name} - ${model.description} ${priceTag}${recommended}`;
+            return {
+                name,
+                value: model.id,
+                short: model.name,
+            };
+        });
+        // Add cancel option
+        choices.push({
+            name: chalk.gray('Cancel'),
+            value: '__cancel__',
+            short: 'Cancel',
+        });
+        // Find default index
+        const defaultIndex = defaultModel
+            ? AVAILABLE_MODELS.findIndex((m) => m.id === defaultModel)
+            : AVAILABLE_MODELS.findIndex((m) => m.recommended);
+        const { model } = await inquirer.prompt([
+            {
+                type: 'list',
+                name: 'model',
+                message: 'Which model would you like to use?',
+                choices,
+                default: defaultIndex >= 0 ? defaultIndex : 0,
+            },
+        ]);
+        if (model === '__cancel__') {
+            return null;
+        }
+        // Show selected model info
+        const selected = AVAILABLE_MODELS.find((m) => m.id === model);
+        if (selected) {
+            console.log('');
+            console.log(chalk.green(`Selected: ${selected.name}`));
+            console.log(chalk.gray(`  Input:  $${selected.inputCostPerMillion} per million tokens`));
+            console.log(chalk.gray(`  Output: $${selected.outputCostPerMillion} per million tokens`));
+        }
+        return model;
+    }
+    /**
+     * Display available models without prompting
+     */
+    displayAvailableModels() {
+        console.log('');
+        console.log(chalk.cyan.bold('Available Claude Models'));
+        console.log(chalk.gray('─'.repeat(60)));
+        console.log('');
+        for (const model of AVAILABLE_MODELS) {
+            const recommended = model.recommended ? chalk.green(' ★') : '';
+            console.log(`  ${chalk.yellow(model.name)}${recommended}`);
+            console.log(`    ${chalk.white(model.description)}`);
+            console.log(`    ${chalk.gray(`Cost: $${model.inputCostPerMillion}/$${model.outputCostPerMillion} per 1M tokens (in/out)`)}`);
+            console.log(`    ${chalk.gray(`ID: ${model.id}`)}`);
+            console.log('');
+        }
     }
 }
 export default Interactive;

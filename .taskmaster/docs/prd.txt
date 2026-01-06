@@ -1,0 +1,371 @@
+# Product Requirements Document: Project Knowledge Framework (PKF)
+
+## Project Overview
+
+**Project Name:** Project Knowledge Framework (PKF)
+**Version:** 1.0.0
+**Status:** Active Development - Quality Improvement Phase
+
+PKF is a comprehensive, implementation-agnostic specification and toolset for organizing, maintaining, and governing documentation across software projects. It provides standards for documentation structure, register management, templates, and AI agent integration.
+
+## Vision
+
+Create a unified framework that makes project documentation work effectively for both human developers and AI agents through machine-parseable standards, intelligent automation, and proven documentation patterns.
+
+## Core Components
+
+### 1. PKF Specification (Complete)
+- Documentation hierarchy standards
+- Register system (TODO, ISSUES, CHANGELOG)
+- Template system with placeholders
+- JSON Schema validation
+- AI agent definitions
+
+### 2. pkf-init Package (Primary Focus)
+AI-assisted documentation migration and initialization tool that helps projects adopt PKF standards.
+
+**Current Status:** Feature-complete but has production blockers
+
+## Critical Issues (Production Blockers)
+
+### Issue 1: ESLint Errors Blocking Builds
+**Priority:** CRITICAL
+**Impact:** Cannot publish to npm, CI/CD fails
+
+Three linting errors prevent production deployment:
+1. `packages/pkf-init/src/migration/worker.ts:614:63` - Unused parameter 'schema'
+2. `packages/pkf-init/src/stages/schema-design.ts:390:11` - Unused variable 'patterns'
+3. `packages/pkf-init/src/stages/schema-design.ts:396:38` - Regex spacing issue (no-regex-spaces)
+
+**Requirements:**
+- All ESLint errors must be resolved
+- Build must pass cleanly with zero errors
+- Maintain existing functionality
+
+### Issue 2: Race Condition in Lock Manager
+**Priority:** CRITICAL
+**Impact:** Data corruption risk in concurrent usage
+
+TOCTOU (Time-of-Check Time-of-Use) vulnerability in lock manager allows two processes to corrupt locks simultaneously.
+
+**Requirements:**
+- Implement atomic file operations using fs.open with O_EXCL flag
+- Ensure exclusive lock creation
+- Add tests for concurrent lock attempts
+- Maintain backward compatibility with existing lock files
+
+### Issue 3: Production Debug Logs
+**Priority:** HIGH
+**Impact:** Polluted stderr output, poor user experience
+
+Seven console.error debug statements in orchestrator are always active, making production output noisy.
+
+**Requirements:**
+- Remove or gate all debug console statements behind verbose flag
+- Use structured logger instead of console.error
+- Ensure production output is clean by default
+- Preserve debug info for troubleshooting mode
+
+## High-Priority Quality Improvements
+
+### Feature 1: Comprehensive Unit Tests
+**Priority:** HIGH
+**Impact:** Code quality, maintainability, confidence in changes
+
+Core workflow stages lack unit test coverage (only integration tests exist):
+- `src/stages/analysis.ts` (886 lines) - No unit tests
+- `src/stages/schema-design.ts` - No unit tests
+- `src/stages/implementation.ts` - No unit tests
+- `src/stages/migration.ts` - No unit tests
+- `src/migration/worker.ts` - No unit tests
+- `src/migration/executor.ts` - No unit tests
+- `src/agents/orchestrator.ts` - No unit tests
+- `src/api/anthropic-client.ts` - No unit tests
+
+**Requirements:**
+- Add unit tests for all core stage classes
+- Target 70%+ code coverage for stages
+- Mock external dependencies (API calls, file I/O)
+- Test error handling paths
+- Maintain 100% test pass rate
+
+### Feature 2: Externalized Templates
+**Priority:** HIGH
+**Impact:** Customizability, maintainability
+
+Template strings are hardcoded in migration worker (lines 663-696), making them difficult to customize.
+
+**Requirements:**
+- Extract all template strings to external files
+- Create template directory structure (e.g., `templates/readme.md`, `templates/guide.md`)
+- Implement template loading mechanism
+- Support user-provided custom templates
+- Maintain backward compatibility
+
+## Medium-Priority Improvements
+
+### Feature 3: Enhanced Error Handling
+**Priority:** MEDIUM
+**Impact:** Reliability, user experience
+
+Parallel operations lack proper error handling, causing complete failure on partial errors.
+
+**Requirements:**
+- Add try/catch to parallel task execution in orchestrator
+- Implement partial result collection
+- Provide graceful degradation
+- Report which tasks succeeded/failed
+- Allow continuation after non-critical failures
+
+### Feature 4: Configurable Constants
+**Priority:** MEDIUM
+**Impact:** Flexibility, customization
+
+Multiple magic numbers are hardcoded and should be configurable:
+- `MAX_PARALLEL_INSPECTIONS = 3` in analysis.ts
+- `DEFAULT_MAX_ITERATIONS = 5` in orchestrator.ts
+- `AVG_OUTPUT_TOKENS_PER_DOC = 1000` in planner.ts
+- Retry attempts and delays in anthropic-client.ts
+
+**Requirements:**
+- Add configuration file support for these values
+- Provide sensible defaults
+- Document configuration options
+- Support environment variable overrides
+
+### Feature 5: State Migration Strategy
+**Priority:** MEDIUM
+**Impact:** Upgrade path, backward compatibility
+
+Workflow state is versioned but no migration strategy exists for handling version changes.
+
+**Requirements:**
+- Implement state version detection
+- Create migration handlers for version upgrades
+- Handle stale state files gracefully
+- Prevent state cache corruption
+- Document state schema changes
+
+### Feature 6: Secure YAML Parsing
+**Priority:** MEDIUM
+**Impact:** Security, best practices
+
+Uses yaml.load() without safe mode, potential code execution risk.
+
+**Requirements:**
+- Replace all yaml.load() with safe parsing
+- Use `yaml.load(content, { schema: yaml.JSON_SCHEMA })`
+- Audit all YAML parsing locations
+- Add security tests
+
+## Low-Priority Optimizations
+
+### Feature 7: Performance Optimizations
+**Priority:** LOW
+**Impact:** Speed, efficiency
+
+Sequential file reads in loops cause performance bottlenecks.
+
+**Requirements:**
+- Replace sequential await in loops with Promise.all()
+- Implement parallel file scanning
+- Add progress indicators for long operations
+- Optimize token estimation overhead
+- Consider streaming YAML parsing for large files
+
+## Technical Requirements
+
+### Code Quality Standards
+- Zero ESLint errors (enforce with CI)
+- 70%+ test coverage for core modules
+- No type escapes (`as any`, `@ts-ignore`)
+- Strict TypeScript mode enabled
+- All public APIs documented
+
+### Performance Targets
+- Handle repositories with 1000+ markdown files
+- Complete analysis stage in <5 minutes for typical repos
+- Memory usage <500MB for standard workflows
+- Support concurrent executions with proper locking
+
+### Security Requirements
+- Secure API key handling (no logging)
+- Path traversal prevention
+- Safe YAML parsing
+- Atomic file operations
+- No shell command injection risks
+
+### Compatibility Requirements
+- Node.js 18+ support
+- TypeScript 5.3+ compatibility
+- Cross-platform (Windows, macOS, Linux)
+- Git repository integration
+- ESM module support
+
+## Success Metrics
+
+### Phase 1: Production Readiness (Critical)
+- ✅ Zero ESLint errors
+- ✅ Zero known race conditions
+- ✅ Clean production output
+- ✅ All 215+ tests passing
+- 🎯 Target: Complete within 1 week
+
+### Phase 2: Quality Improvements (High Priority)
+- ✅ 70%+ test coverage for core stages
+- ✅ Externalized templates
+- ✅ Enhanced error handling
+- 🎯 Target: Complete within 2 weeks
+
+### Phase 3: Enhancements (Medium Priority)
+- ✅ Configurable constants
+- ✅ State migration strategy
+- ✅ Secure YAML parsing
+- 🎯 Target: Complete within 1 month
+
+### Phase 4: Optimizations (Low Priority)
+- ✅ Performance improvements
+- ✅ Parallel file operations
+- ✅ Streaming support
+- 🎯 Target: Complete within 2 months
+
+## User Stories
+
+### As a Developer
+- I want clean build output so I can see real issues
+- I want reliable concurrent execution so multiple team members can use PKF
+- I want customizable templates so I can match my project's style
+- I want comprehensive error messages so I can troubleshoot issues
+
+### As a Project Maintainer
+- I want high test coverage so I can refactor confidently
+- I want configurable behavior so I can tune for my repo size
+- I want secure operations so I don't introduce vulnerabilities
+- I want fast execution so adoption doesn't slow down development
+
+### As an Operations Engineer
+- I want atomic operations so concurrent runs don't corrupt data
+- I want safe YAML parsing so malicious docs can't execute code
+- I want clean logs so I can monitor production usage
+- I want upgrade paths so state files don't break between versions
+
+## Non-Functional Requirements
+
+### Maintainability
+- Clear separation of concerns (stages, agents, utils)
+- Comprehensive inline documentation
+- Architecture decision records for major choices
+- Contributing guidelines for external contributors
+
+### Reliability
+- Graceful degradation on partial failures
+- Rollback support for migrations
+- Validation at system boundaries
+- Comprehensive error messages
+
+### Observability
+- Structured logging with levels
+- Cost tracking and budget enforcement
+- Progress indicators for long operations
+- Detailed error reporting
+
+### Extensibility
+- Plugin architecture for custom agents
+- Template override system
+- Configuration file support
+- API for programmatic usage
+
+## Out of Scope (For Now)
+
+- Web UI for PKF management
+- Real-time collaboration features
+- Cloud-hosted documentation services
+- Integration with specific IDEs
+- Automated documentation generation from code
+- Multi-repository coordination
+
+## Dependencies
+
+### Runtime
+- @anthropic-ai/sdk ^0.39.0 (AI capabilities)
+- chalk ^5.3.0 (terminal styling)
+- commander ^12.1.0 (CLI framework)
+- inquirer ^12.3.0 (interactive prompts)
+- js-yaml ^4.1.0 (YAML parsing)
+- ora ^8.1.1 (terminal spinners)
+- glob ^11.0.0 (file globbing)
+
+### Development
+- TypeScript ^5.3.3 (type safety)
+- Vitest ^2.1.9 (testing)
+- ESLint ^9.18.0 (linting)
+- typescript-eslint ^8.21.0 (TS linting)
+
+## Risk Assessment
+
+### High Risks
+1. **Race conditions in production** - Mitigated by Task #2
+2. **Breaking changes in Anthropic API** - Mitigated by SDK usage
+3. **Large repository performance** - Addressed by Task #7
+
+### Medium Risks
+1. **Template compatibility** - Mitigated by versioning
+2. **State file corruption** - Addressed by atomic saves
+3. **API cost overruns** - Mitigated by budget enforcement
+
+### Low Risks
+1. **Dependency vulnerabilities** - Regular npm audit
+2. **Cross-platform issues** - CI testing on multiple platforms
+3. **Type safety regression** - Strict TypeScript enforced
+
+## Acceptance Criteria
+
+### Critical Issues (Tasks 1-3)
+- Build passes with zero ESLint errors
+- No race conditions in lock manager
+- Production output contains no debug logs
+- All existing tests continue to pass
+
+### Quality Improvements (Tasks 4-6)
+- Unit test coverage ≥70% for core stages
+- All templates externalized to files
+- Parallel operations handle partial failures gracefully
+- Magic numbers configurable via config file
+
+### Enhancements (Tasks 7-9)
+- State version migration implemented
+- All YAML parsing uses safe mode
+- File operations parallelized where beneficial
+- Performance improved by ≥30% for large repos
+
+## Release Plan
+
+### v1.0.1 (Patch) - Critical Fixes
+- Fix ESLint errors
+- Fix race condition
+- Remove debug logs
+**Target:** 1 week
+
+### v1.1.0 (Minor) - Quality
+- Add unit tests
+- Externalize templates
+- Improve error handling
+**Target:** 1 month
+
+### v1.2.0 (Minor) - Enhancements
+- Configuration system
+- State migration
+- Security improvements
+**Target:** 2 months
+
+### v2.0.0 (Major) - Performance
+- Parallel optimizations
+- Streaming support
+- Breaking API changes if needed
+**Target:** 3 months
+
+## Notes
+
+This PRD reflects the current state of PKF based on comprehensive codebase analysis. The project is well-architected with strong fundamentals but requires critical bug fixes before production deployment.
+
+The 10 tasks identified represent work already scoped and ready for implementation, with clear priorities and acceptance criteria.

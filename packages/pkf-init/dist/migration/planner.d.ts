@@ -3,6 +3,7 @@
  * Analyzes blueprints and creates migration tasks for documents
  */
 import type { LoadedConfig, MigrationTask } from '../types/index.js';
+import type { PKFConfig } from '../config/pkf-config.js';
 /**
  * Cost estimate for migration
  */
@@ -22,6 +23,14 @@ export interface ExtendedMigrationTask extends MigrationTask {
     priority: number;
     /** Estimated tokens for this task */
     estimatedTokens: number;
+    /** Whether file needs to be moved (source !== target) */
+    needsMove: boolean;
+    /** Whether file needs frontmatter added */
+    needsFrontmatter: boolean;
+    /** Whether file needs to be created (doesn't exist yet) */
+    needsCreation: boolean;
+    /** Title for the document (used when creating new files) */
+    title?: string;
 }
 /**
  * Complete migration plan
@@ -44,20 +53,19 @@ export interface MigrationPlan {
 export declare class MigrationPlanner {
     private config;
     private schemasYaml;
-    /**
-     * Document type patterns for classification
-     */
-    private readonly docTypePatterns;
+    private pkfConfig;
     /**
      * Priority mapping by document type
+     * Lower number = higher priority
      */
     private readonly typePriorities;
     /**
      * Create a new MigrationPlanner
      * @param config - Loaded configuration
      * @param schemasYaml - Schemas YAML content for type resolution
+     * @param pkfConfig - Optional PKF configuration
      */
-    constructor(config: LoadedConfig, schemasYaml: string);
+    constructor(config: LoadedConfig, schemasYaml: string, pkfConfig?: PKFConfig);
     /**
      * Create a migration plan from a blueprint
      * @param blueprint - Blueprint YAML content
@@ -69,22 +77,8 @@ export declare class MigrationPlanner {
      */
     private extractDocuments;
     /**
-     * Determine document type based on file path and schemas
-     * @param filePath - Path to the file
-     * @param schemas - Parsed schemas object
-     * @returns Document type string
-     */
-    private determineDocumentType;
-    /**
-     * Generate target path based on source path and document type
-     * @param sourcePath - Original file path
-     * @param docType - Determined document type
-     * @returns Target path for migration
-     */
-    private generateTargetPath;
-    /**
      * Calculate priority for a document
-     * @param docType - Document type
+     * @param docType - Document type (already normalized)
      * @param sourcePath - Source file path
      * @returns Priority number (0 = highest)
      */
@@ -95,6 +89,12 @@ export declare class MigrationPlanner {
      * @returns Estimated token count
      */
     private estimateFileTokens;
+    /**
+     * Check if a file exists
+     * @param filePath - Path to the file
+     * @returns Whether the file exists
+     */
+    private fileExists;
     /**
      * Estimate costs for all migration tasks
      * @param tasks - List of migration tasks

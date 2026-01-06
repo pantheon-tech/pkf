@@ -5,6 +5,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { WorkflowStage, } from '../types/index.js';
+import { migrateState, validateState } from './migration.js';
 /** State file name */
 const STATE_FILE_NAME = '.pkf-init-state.json';
 /** Current state version */
@@ -35,7 +36,14 @@ export class WorkflowStateManager {
     async load() {
         try {
             const content = await fs.readFile(this.statePath, 'utf-8');
-            this.state = JSON.parse(content);
+            const rawState = JSON.parse(content);
+            // Migrate state to current version if needed
+            const migratedState = migrateState(rawState, STATE_VERSION);
+            // Validate migrated state
+            if (!validateState(migratedState)) {
+                throw new Error('State validation failed after migration');
+            }
+            this.state = migratedState;
             return this.state;
         }
         catch (error) {
@@ -44,7 +52,7 @@ export class WorkflowStateManager {
                 this.state = null;
                 return null;
             }
-            // Re-throw other errors (e.g., JSON parse errors)
+            // Re-throw other errors (e.g., JSON parse errors, migration errors)
             throw error;
         }
     }
@@ -53,6 +61,12 @@ export class WorkflowStateManager {
      * @param state - State to save
      */
     async save(state) {
+        // Validate state before saving
+        if (!validateState(state)) {
+            throw new Error('Cannot save invalid state');
+        }
+        // Ensure state has current version
+        state.version = STATE_VERSION;
         // Update the timestamp
         state.updatedAt = new Date().toISOString();
         // Write to temp file first

@@ -7,7 +7,7 @@ import { detectConvergence } from '../../src/agents/convergence.js';
 import type { AgentMessage } from '../../src/types/index.js';
 
 describe('detectConvergence', () => {
-  describe('Empty and Single Message Cases', () => {
+  describe('Empty and Insufficient Message Cases', () => {
     it('returns converged: false for empty messages', () => {
       const result = detectConvergence([]);
 
@@ -23,17 +23,32 @@ describe('detectConvergence', () => {
       const result = detectConvergence(messages);
 
       expect(result.converged).toBe(false);
-      expect(result.reason).toBe('No convergence detected');
+      expect(result.reason).toContain('Minimum');
+    });
+
+    it('returns converged: false for fewer than 4 messages (minimum for one round-trip)', () => {
+      const messages: AgentMessage[] = [
+        { role: 'user', content: 'Initial prompt.' },
+        { role: 'assistant', content: 'SCHEMA-DESIGN-APPROVED: All good.' },
+        { role: 'user', content: 'Forwarded to agent 2.' },
+      ];
+
+      // Even with an explicit signal, need at least 4 messages
+      const result = detectConvergence(messages);
+
+      expect(result.converged).toBe(false);
+      expect(result.reason).toContain('Minimum 4 messages required');
     });
   });
 
   describe('Explicit Convergence Signals', () => {
-    it('detects SCHEMA-DESIGN-CONVERGED signal', () => {
+    it('detects SCHEMA-DESIGN-CONVERGED signal with 4+ messages', () => {
       const messages: AgentMessage[] = [
         { role: 'user', content: 'Here is my schema proposal.' },
         { role: 'assistant', content: 'I have some suggestions.' },
+        { role: 'user', content: 'Good suggestions, incorporated.' },
         {
-          role: 'user',
+          role: 'assistant',
           content: 'SCHEMA-DESIGN-CONVERGED: Final schema agreed upon with all validations.',
         },
       ];
@@ -45,9 +60,11 @@ describe('detectConvergence', () => {
       expect(result.signal).toContain('SCHEMA-DESIGN-CONVERGED');
     });
 
-    it('detects SCHEMA-DESIGN-APPROVED signal', () => {
+    it('detects SCHEMA-DESIGN-APPROVED signal with 4+ messages', () => {
       const messages: AgentMessage[] = [
-        { role: 'user', content: 'Schema review complete.' },
+        { role: 'user', content: 'Schema review starting.' },
+        { role: 'assistant', content: 'Looking at the schema now.' },
+        { role: 'user', content: 'Any concerns?' },
         {
           role: 'assistant',
           content: 'SCHEMA-DESIGN-APPROVED: All requirements met.',
@@ -61,9 +78,11 @@ describe('detectConvergence', () => {
       expect(result.signal).toContain('SCHEMA-DESIGN-APPROVED');
     });
 
-    it('detects IMPLEMENTATION-COMPLETE signal', () => {
+    it('detects IMPLEMENTATION-COMPLETE signal with 4+ messages', () => {
       const messages: AgentMessage[] = [
-        { role: 'user', content: 'Implementation work done.' },
+        { role: 'user', content: 'Implementation work starting.' },
+        { role: 'assistant', content: 'Processing files.' },
+        { role: 'user', content: 'How is progress?' },
         {
           role: 'assistant',
           content: 'IMPLEMENTATION-COMPLETE: All files generated successfully.',
@@ -76,11 +95,12 @@ describe('detectConvergence', () => {
       expect(result.signal).toContain('IMPLEMENTATION-COMPLETE');
     });
 
-    it('detects MIGRATION-COMPLETE signal', () => {
+    it('detects MIGRATION-COMPLETE signal with 4+ messages', () => {
       const messages: AgentMessage[] = [
         { role: 'user', content: 'Starting migration.' },
         { role: 'assistant', content: 'Processing documents.' },
-        { role: 'user', content: 'MIGRATION-COMPLETE: All documents migrated.' },
+        { role: 'user', content: 'Status update?' },
+        { role: 'assistant', content: 'MIGRATION-COMPLETE: All documents migrated.' },
       ];
 
       const result = detectConvergence(messages);
@@ -91,6 +111,9 @@ describe('detectConvergence', () => {
 
     it('extracts reason from convergence signal', () => {
       const messages: AgentMessage[] = [
+        { role: 'user', content: 'Initial prompt.' },
+        { role: 'assistant', content: 'Response 1.' },
+        { role: 'user', content: 'Follow up.' },
         {
           role: 'assistant',
           content: 'SCHEMA-DESIGN-CONVERGED: Custom reason with details about the agreement.',
@@ -107,8 +130,11 @@ describe('detectConvergence', () => {
 
     it('performs case insensitive signal detection', () => {
       const messages: AgentMessage[] = [
+        { role: 'user', content: 'Initial prompt.' },
+        { role: 'assistant', content: 'Response 1.' },
+        { role: 'user', content: 'Follow up.' },
         {
-          role: 'user',
+          role: 'assistant',
           content: 'schema-design-converged: lowercase signal works too.',
         },
       ];
@@ -121,10 +147,12 @@ describe('detectConvergence', () => {
   });
 
   describe('Implicit Agreement Detection', () => {
-    it('detects implicit agreement with "I agree"', () => {
+    it('detects implicit agreement with explicit "I fully agree" phrases', () => {
       const messages: AgentMessage[] = [
-        { role: 'user', content: 'I agree with your approach.' },
-        { role: 'assistant', content: 'I agree, this looks correct.' },
+        { role: 'user', content: 'Initial proposal.' },
+        { role: 'assistant', content: 'I fully agree with your approach.' },
+        { role: 'user', content: 'I fully agree, the design is final.' },
+        { role: 'assistant', content: 'I fully agree, proceeding.' },
       ];
 
       const result = detectConvergence(messages);
@@ -133,10 +161,12 @@ describe('detectConvergence', () => {
       expect(result.reason).toContain('Implicit convergence');
     });
 
-    it('detects implicit agreement with "approved"', () => {
+    it('detects implicit agreement with "fully approved" phrases', () => {
       const messages: AgentMessage[] = [
-        { role: 'user', content: 'The design is approved.' },
-        { role: 'assistant', content: 'Yes, approved and ready.' },
+        { role: 'user', content: 'The design is fully approved.' },
+        { role: 'assistant', content: 'Final approval granted.' },
+        { role: 'user', content: 'Fully approved from my side too.' },
+        { role: 'assistant', content: 'Final approval confirmed.' },
       ];
 
       const result = detectConvergence(messages);
@@ -144,46 +174,52 @@ describe('detectConvergence', () => {
       expect(result.converged).toBe(true);
     });
 
-    it('detects implicit agreement with "looks good"', () => {
+    it('detects implicit agreement with "no changes needed" phrases', () => {
+      const messages: AgentMessage[] = [
+        { role: 'user', content: 'No changes needed.' },
+        { role: 'assistant', content: 'No modifications required.' },
+        { role: 'user', content: 'Schema is complete.' },
+        { role: 'assistant', content: 'Design is final.' },
+      ];
+
+      const result = detectConvergence(messages);
+
+      expect(result.converged).toBe(true);
+    });
+
+    it('does NOT converge with casual "looks good" or "ready to proceed"', () => {
+      // These phrases are too common and should NOT trigger convergence
       const messages: AgentMessage[] = [
         { role: 'user', content: 'This looks good to me.' },
-        { role: 'assistant', content: 'Looks good, proceeding.' },
-      ];
-
-      const result = detectConvergence(messages);
-
-      expect(result.converged).toBe(true);
-    });
-
-    it('detects implicit agreement with "no further changes"', () => {
-      const messages: AgentMessage[] = [
-        { role: 'user', content: 'No further changes needed.' },
-        { role: 'assistant', content: 'Agreed, no further changes required.' },
-      ];
-
-      const result = detectConvergence(messages);
-
-      expect(result.converged).toBe(true);
-    });
-
-    it('requires 3+ agreements in last 4 messages for implicit convergence with 4+ messages', () => {
-      // With 4 messages, all 4 must show agreement for implicit convergence
-      const messages: AgentMessage[] = [
-        { role: 'user', content: 'I agree with the design.' },
-        { role: 'assistant', content: 'Looks good to me.' },
-        { role: 'user', content: 'Approved for implementation.' },
+        { role: 'assistant', content: 'Looks good, continuing.' },
+        { role: 'user', content: 'Everything looks good.' },
         { role: 'assistant', content: 'Ready to proceed.' },
       ];
 
       const result = detectConvergence(messages);
 
-      expect(result.converged).toBe(true);
-      expect(result.reason).toContain('Implicit convergence');
+      expect(result.converged).toBe(false);
+      expect(result.reason).toBe('No convergence detected');
+    });
+
+    it('does NOT converge with casual "I agree" without "fully"', () => {
+      // Simple "I agree" is too casual and could be part of ongoing discussion
+      const messages: AgentMessage[] = [
+        { role: 'user', content: 'I agree with the design.' },
+        { role: 'assistant', content: 'I agree with your approach.' },
+        { role: 'user', content: 'Agreed, let me continue.' },
+        { role: 'assistant', content: 'I agree, ready to proceed.' },
+      ];
+
+      const result = detectConvergence(messages);
+
+      expect(result.converged).toBe(false);
+      expect(result.reason).toBe('No convergence detected');
     });
 
     it('returns converged: false when not enough agreements in 4+ messages', () => {
       const messages: AgentMessage[] = [
-        { role: 'user', content: 'I agree with the design.' },
+        { role: 'user', content: 'I fully agree with the design.' },
         { role: 'assistant', content: 'I have some concerns about this.' },
         { role: 'user', content: 'Let me reconsider.' },
         { role: 'assistant', content: 'Yes, please review again.' },
@@ -193,6 +229,19 @@ describe('detectConvergence', () => {
 
       expect(result.converged).toBe(false);
       expect(result.reason).toBe('No convergence detected');
+    });
+
+    it('returns converged: false for 2-message conversations even with agreement', () => {
+      // Need at least 4 messages for convergence (one full round-trip)
+      const messages: AgentMessage[] = [
+        { role: 'user', content: 'I fully agree with your approach.' },
+        { role: 'assistant', content: 'I fully agree, design is final.' },
+      ];
+
+      const result = detectConvergence(messages);
+
+      expect(result.converged).toBe(false);
+      expect(result.reason).toContain('Minimum 4 messages required');
     });
   });
 

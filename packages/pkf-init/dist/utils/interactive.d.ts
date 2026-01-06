@@ -2,7 +2,7 @@
  * PKF Init Interactive Mode Utilities
  * Provides interactive prompts and approval gates for workflow stages
  */
-import type { LoadedConfig, MigrationTask, WorkflowStage } from '../types/index.js';
+import type { ClaudeModel, LoadedConfig, MigrationTask, WorkflowStage } from '../types/index.js';
 /**
  * Interactive mode handler for PKF initialization workflow
  * Provides approval gates and user interaction at each stage
@@ -24,10 +24,18 @@ export declare class Interactive {
     /**
      * Stage 2 approval: Review and approve generated schemas
      */
-    approveSchema(schemasYaml: string, iterations: number): Promise<{
+    approveSchema(schemasYaml: string, iterations: number, targetStructure?: {
+        path: string;
+        targetPath: string;
+        type: string;
+    }[]): Promise<{
         approved: boolean;
         edited?: string;
     }>;
+    /**
+     * Display target structure as a tree
+     */
+    private displayStructureTree;
     /**
      * Stage 3 approval: Review and approve directory/file structure
      */
@@ -62,6 +70,16 @@ export declare class Interactive {
      * Get human-readable label for workflow stage
      */
     private getStageLabel;
+    /**
+     * Prompt user to select a Claude model
+     * @param defaultModel - Default model to pre-select
+     * @returns Selected model ID or null if cancelled
+     */
+    selectModel(defaultModel?: ClaudeModel): Promise<ClaudeModel | null>;
+    /**
+     * Display available models without prompting
+     */
+    displayAvailableModels(): void;
 }
 export default Interactive;
 //# sourceMappingURL=interactive.d.ts.map

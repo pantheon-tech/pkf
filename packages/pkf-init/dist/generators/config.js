@@ -4,7 +4,7 @@
  */
 import { readFile, writeFile, access } from 'fs/promises';
 import { join } from 'path';
-import * as yaml from 'js-yaml';
+import { safeLoad, safeDump } from '../utils/yaml.js';
 /**
  * ConfigGenerator - Generates pkf.config.yaml
  */
@@ -25,19 +25,17 @@ export class ConfigGenerator {
      */
     async generate(schemasYaml, structure) {
         // Parse schemas.yaml
-        const schemas = yaml.load(schemasYaml);
+        const schemas = safeLoad(schemasYaml);
         // Get all created directories
         const allDirs = [...structure.createdDirs, ...structure.existingDirs];
         // Build configuration
         const config = await this.buildConfig(schemas, allDirs);
         // Convert to YAML with nice formatting
-        return yaml.dump(config, {
+        return safeDump(config, {
             indent: 2,
             lineWidth: 100,
             noRefs: true,
             sortKeys: false,
-            quotingType: '"',
-            forceQuotes: false,
         });
     }
     /**

@@ -219,11 +219,49 @@ import type {
 
 ## Configuration
 
+### PKF Configuration File
+
+You can create a `pkf-config.yaml` file to customize pkf-init behavior. Pass it with the `-c` or `--config` flag:
+
+```bash
+pkf-init -c pkf-config.yaml
+```
+
+**Example configuration:**
+
+```yaml
+# Analysis stage configuration
+analysis:
+  maxParallelInspections: 3  # Number of parallel document inspections
+
+# Orchestration configuration
+orchestration:
+  maxIterations: 5  # Maximum iterations for agent conversations
+
+# Planning configuration
+planning:
+  avgOutputTokensPerDoc: 1000  # Average output tokens per document for cost estimation
+
+# API client configuration
+api:
+  maxRetries: 3        # Maximum retry attempts for failed API calls
+  retryDelayMs: 1000   # Delay between retries in milliseconds
+  timeout: 1800000     # API request timeout in milliseconds (30 minutes default, 0 = no timeout)
+```
+
+All configuration options can also be overridden via environment variables (see below).
+
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | API key for Claude (required unless passed via `--api-key`) |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANTHROPIC_API_KEY` | API key for Claude (required unless passed via `--api-key`) | - |
+| `PKF_MAX_PARALLEL_INSPECTIONS` | Maximum parallel document inspections | `3` |
+| `PKF_MAX_ITERATIONS` | Maximum agent conversation iterations | `5` |
+| `PKF_AVG_OUTPUT_TOKENS_PER_DOC` | Average output tokens per document | `1000` |
+| `PKF_MAX_RETRIES` | Maximum retry attempts | `3` |
+| `PKF_RETRY_DELAY_MS` | Retry delay in milliseconds | `1000` |
+| `PKF_API_TIMEOUT` | API timeout in milliseconds (0 = no timeout) | `1800000` (30 min) |
 
 ### State Files
 
@@ -350,6 +388,17 @@ if (backupPath) {
 **Schema validation failures**
 - Run in interactive mode to review and edit schemas: `--interactive`
 - Check the generated `schemas.yaml` for syntax errors
+
+**"Streaming is strongly recommended for operations that may take longer than 10 minutes"**
+- This error occurs when long-running agent conversations exceed the API timeout
+- The default timeout is 30 minutes, which should be sufficient for most projects
+- To increase the timeout, create a `pkf-config.yaml` file with:
+  ```yaml
+  api:
+    timeout: 3600000  # 60 minutes in milliseconds, 0 for no timeout
+  ```
+- Then run with: `pkf-init -c pkf-config.yaml`
+- Or set the environment variable: `export PKF_API_TIMEOUT=3600000`
 
 ## Requirements
 

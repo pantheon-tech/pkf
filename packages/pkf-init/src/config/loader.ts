@@ -48,7 +48,7 @@ export class ConfigLoader {
    */
   async load(): Promise<LoadedConfig> {
     // Load and validate API key
-    const apiKey = this.loadApiKey();
+    const { apiKey, useOAuth } = this.loadApiKey();
     if (!this.validateApiKey(apiKey)) {
       throw new Error("Invalid API key format. Key should start with 'sk-ant-'");
     }
@@ -64,6 +64,7 @@ export class ConfigLoader {
 
     return {
       apiKey,
+      useOAuth,
       apiTier: this.options.apiTier ?? DEFAULTS.apiTier,
       rootDir,
       docsDir,
@@ -72,29 +73,38 @@ export class ConfigLoader {
       maxCost: this.options.maxCost ?? DEFAULTS.maxCost,
       workers: this.options.workers ?? DEFAULTS.workers,
       pkfInitialized,
+      customTemplateDir: this.options.customTemplateDir
+        ? resolve(this.workingDir, this.options.customTemplateDir)
+        : undefined,
     };
   }
 
   /**
    * Load API key from CLI args or environment
-   * Priority: CLI arg > env var ANTHROPIC_API_KEY
-   * @returns API key
+   * Priority: CLI arg > ANTHROPIC_API_KEY > CLAUDE_CODE_OAUTH_TOKEN
+   * @returns API key and OAuth flag
    * @throws Error if no API key is found
    */
-  private loadApiKey(): string {
-    // Priority 1: CLI argument
+  private loadApiKey(): { apiKey: string; useOAuth: boolean } {
+    // Priority 1: CLI argument (assume standard API key)
     if (this.options.apiKey) {
-      return this.options.apiKey;
+      return { apiKey: this.options.apiKey, useOAuth: false };
     }
 
-    // Priority 2: Environment variable
+    // Priority 2: ANTHROPIC_API_KEY environment variable
     const envKey = process.env.ANTHROPIC_API_KEY;
     if (envKey) {
-      return envKey;
+      return { apiKey: envKey, useOAuth: false };
+    }
+
+    // Priority 3: CLAUDE_CODE_OAUTH_TOKEN environment variable (Claude Code OAuth)
+    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (oauthToken) {
+      return { apiKey: oauthToken, useOAuth: true };
     }
 
     throw new Error(
-      'Anthropic API key required. Set ANTHROPIC_API_KEY or use --api-key'
+      'Anthropic API key required. Set ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, or use --api-key'
     );
   }
 
@@ -104,7 +114,8 @@ export class ConfigLoader {
    * @returns true if valid, false otherwise
    */
   private validateApiKey(key: string): boolean {
-    return key.startsWith('sk-ant-');
+    // Accept standard API keys (sk-ant-*) or OAuth tokens
+    return key.startsWith('sk-ant-') || key.length > 20;
   }
 
   /**

@@ -1,0 +1,84 @@
+{
+  "name": "@pantheon-tech/pkf-core",
+  "version": "0.1.0",
+  "description": "Core business logic for Project Knowledge Framework (PKF) - shared between CLI and MCP server",
+  "type": "module",
+  "keywords": [
+    "pkf",
+    "documentation",
+    "framework",
+    "knowledge-management",
+    "typescript"
+  ],
+  "author": "Pantheon Technologies",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pantheon-tech/pkf",
+    "directory": "packages/pkf-core"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./type-mapper": {
+      "types": "./dist/type-mapper/index.d.ts",
+      "import": "./dist/type-mapper/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
+    },
+    "./templates": {
+      "types": "./dist/templates/index.d.ts",
+      "import": "./dist/templates/index.js"
+    },
+    "./frontmatter": {
+      "types": "./dist/frontmatter/index.d.ts",
+      "import": "./dist/frontmatter/index.js"
+    },
+    "./scanner": {
+      "types": "./dist/scanner/index.d.ts",
+      "import": "./dist/scanner/index.js"
+    },
+    "./blueprint": {
+      "types": "./dist/blueprint/index.d.ts",
+      "import": "./dist/blueprint/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.9"
+  },
+  "peerDependencies": {}
+}

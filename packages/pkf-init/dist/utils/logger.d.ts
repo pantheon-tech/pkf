@@ -2,7 +2,6 @@
  * PKF Init Logger
  * Centralized logging with colors and formatting
  */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 /**
  * Set verbose mode
  */
@@ -81,12 +80,15 @@ export declare function getStreamBuffer(): string;
  */
 export declare function isStreaming(): boolean;
 /**
- * Create a stream callback function for the orchestrator
- * @param label - Optional label for the stream
- * @returns Callback function
+ * Create a callback for streaming text output
  */
 export declare function createStreamCallback(label?: string): (text: string) => void;
+/**
+ * Default export - object with all logger functions
+ */
 declare const _default: {
+    setVerbose: typeof setVerbose;
+    isVerbose: typeof isVerbose;
     debug: typeof debug;
     info: typeof info;
     success: typeof success;
@@ -96,8 +98,6 @@ declare const _default: {
     step: typeof step;
     cost: typeof cost;
     tokens: typeof tokens;
-    setVerbose: typeof setVerbose;
-    isVerbose: typeof isVerbose;
     createLogger: typeof createLogger;
     startStreaming: typeof startStreaming;
     streamText: typeof streamText;

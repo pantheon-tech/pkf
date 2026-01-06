@@ -23,8 +23,8 @@ export declare class ConfigLoader {
     load(): Promise<LoadedConfig>;
     /**
      * Load API key from CLI args or environment
-     * Priority: CLI arg > env var ANTHROPIC_API_KEY
-     * @returns API key
+     * Priority: CLI arg > ANTHROPIC_API_KEY > CLAUDE_CODE_OAUTH_TOKEN
+     * @returns API key and OAuth flag
      * @throws Error if no API key is found
      */
     private loadApiKey;

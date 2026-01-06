@@ -3,8 +3,9 @@
  * AI-assisted initialization for PKF in existing projects
  */
 
-// Types
+// Types and constants
 export * from './types/index.js';
+export { AVAILABLE_MODELS, type ModelInfo } from './types/index.js';
 
 // State management
 export { WorkflowStateManager } from './state/workflow-state.js';

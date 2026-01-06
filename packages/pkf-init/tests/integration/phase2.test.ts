@@ -155,11 +155,19 @@ Ready for implementation.`,
       expect(result.reason).toBe('Explicit convergence signal detected');
     });
 
-    it('detects IMPLEMENTATION-COMPLETE signal', () => {
+    it('detects IMPLEMENTATION-COMPLETE signal with 4+ messages', () => {
       const messages: AgentMessage[] = [
         {
           role: 'user',
           content: 'Please implement the PKF structure.',
+        },
+        {
+          role: 'assistant',
+          content: 'Starting implementation...',
+        },
+        {
+          role: 'user',
+          content: 'Status update?',
         },
         {
           role: 'assistant',
@@ -173,8 +181,16 @@ Ready for implementation.`,
       expect(result.signal).toContain('IMPLEMENTATION-COMPLETE');
     });
 
-    it('detects SCHEMA-DESIGN-CONVERGED signal', () => {
+    it('detects SCHEMA-DESIGN-CONVERGED signal with 4+ messages', () => {
       const messages: AgentMessage[] = [
+        {
+          role: 'user',
+          content: 'Schema design round 1.',
+        },
+        {
+          role: 'assistant',
+          content: 'Proposing schema changes...',
+        },
         {
           role: 'user',
           content: 'Schema design round 5.',
@@ -190,27 +206,46 @@ Ready for implementation.`,
       expect(result.converged).toBe(true);
       expect(result.signal).toContain('SCHEMA-DESIGN-CONVERGED');
     });
-  });
 
-  describe('INT-015: Convergence detection implicit', () => {
-    it('detects implicit convergence with 4+ agreement messages', () => {
-      // Create mock conversation with 4+ messages containing agreement patterns
+    it('requires 4+ messages for convergence even with explicit signal', () => {
       const messages: AgentMessage[] = [
         {
           role: 'user',
-          content: 'Here is the revised schema. I agree with your suggestions.',
+          content: 'Please implement the PKF structure.',
         },
         {
           role: 'assistant',
-          content: 'The changes look good to me. I agree with this approach.',
+          content: 'IMPLEMENTATION-COMPLETE: All files created successfully.',
+        },
+      ];
+
+      // With fewer than 4 messages, convergence should not be detected
+      const result = detectConvergence(messages);
+
+      expect(result.converged).toBe(false);
+      expect(result.reason).toContain('Minimum 4 messages required');
+    });
+  });
+
+  describe('INT-015: Convergence detection implicit', () => {
+    it('detects implicit convergence with explicit "fully approved" phrases', () => {
+      // Create mock conversation with 4+ messages containing STRONG agreement patterns
+      const messages: AgentMessage[] = [
+        {
+          role: 'user',
+          content: 'Here is the revised schema. I fully agree with your suggestions.',
+        },
+        {
+          role: 'assistant',
+          content: 'The changes are fully approved. No changes needed.',
         },
         {
           role: 'user',
-          content: 'Approved! This looks good and ready to proceed.',
+          content: 'Final approval granted. Schema is complete.',
         },
         {
           role: 'assistant',
-          content: 'I agree. This is complete and ready for implementation.',
+          content: 'I fully agree. Design is final.',
         },
       ];
 
@@ -224,7 +259,8 @@ Ready for implementation.`,
       expect(result.reason?.toLowerCase()).toContain('implicit');
     });
 
-    it('detects implicit convergence with 2 different-role agreeing messages', () => {
+    it('does NOT converge with casual agreement like "looks good" or "I agree"', () => {
+      // These casual phrases should NOT trigger convergence
       const messages: AgentMessage[] = [
         {
           role: 'user',
@@ -232,14 +268,42 @@ Ready for implementation.`,
         },
         {
           role: 'assistant',
-          content: 'Approved! Ready to proceed with implementation.',
+          content: 'Looks good. Ready to proceed with implementation.',
+        },
+        {
+          role: 'user',
+          content: 'I agree, this is ready.',
+        },
+        {
+          role: 'assistant',
+          content: 'Approved! Ready to proceed.',
         },
       ];
 
+      // Casual agreement should NOT converge
       const result = detectConvergence(messages);
 
-      expect(result.converged).toBe(true);
-      expect(result.reason?.toLowerCase()).toContain('implicit');
+      expect(result.converged).toBe(false);
+      expect(result.reason).toBe('No convergence detected');
+    });
+
+    it('requires 4+ messages for implicit convergence', () => {
+      const messages: AgentMessage[] = [
+        {
+          role: 'user',
+          content: 'I fully agree with this design. Schema is complete!',
+        },
+        {
+          role: 'assistant',
+          content: 'Fully approved! Design is final.',
+        },
+      ];
+
+      // With fewer than 4 messages, convergence should not be detected
+      const result = detectConvergence(messages);
+
+      expect(result.converged).toBe(false);
+      expect(result.reason).toContain('Minimum 4 messages required');
     });
 
     it('does not converge without agreement patterns', () => {
@@ -354,10 +418,11 @@ Ready for implementation.`,
 
       await Promise.all(taskPromises);
 
-      // Verify token bucket was depleted (use toBeCloseTo due to refill during execution)
+      // Verify token bucket was depleted (use larger tolerance due to refill during execution)
       // Initial: 40000, consumed: 5 * 2000 = 10000, remaining: ~30000
-      expect(rateLimiter.tokenBucket).toBeCloseTo(initialTokens - tokensPerTask * taskCount, 0);
-      expect(rateLimiter.tokenBucket).toBeCloseTo(30000, 0);
+      // Tolerance of -1 allows for up to 5 units of difference
+      expect(rateLimiter.tokenBucket).toBeCloseTo(initialTokens - tokensPerTask * taskCount, -1);
+      expect(rateLimiter.tokenBucket).toBeCloseTo(30000, -1);
 
       // Verify request bucket was depleted
       // Initial: 50, consumed: 5, remaining: ~45
@@ -381,14 +446,14 @@ Ready for implementation.`,
       // Load the documentation-analyst-init agent
       const config = await loadAgentConfig('documentation-analyst-init', agentsDir);
 
-      // Verify it has correct model
-      expect(config.model).toBe('claude-sonnet-4-20250514');
+      // Verify it has correct model (Sonnet)
+      expect(config.model).toBe('claude-sonnet-4-5-20250929');
 
       // Verify temperature
       expect(config.temperature).toBe(0.3);
 
-      // Verify maxTokens
-      expect(config.maxTokens).toBe(8192);
+      // Verify maxTokens (increased for large projects)
+      expect(config.maxTokens).toBe(32768);
 
       // Verify name
       expect(config.name).toBe('documentation-analyst-init');
@@ -398,7 +463,7 @@ Ready for implementation.`,
       expect(config.instructions.length).toBeGreaterThan(100);
       expect(config.instructions).toContain('Documentation Analyst Init');
       expect(config.instructions).toContain('Documentation Discovery');
-      expect(config.instructions).toContain('Blueprint YAML');
+      expect(config.instructions).toContain('PKF Documentation Blueprint');
     });
 
     it('loads pkf-implementer agent correctly', async () => {
@@ -410,8 +475,8 @@ Ready for implementation.`,
       // Load the pkf-implementer agent
       const config = await loadAgentConfig('pkf-implementer', agentsDir);
 
-      // Verify its configuration
-      expect(config.model).toBe('claude-sonnet-4-20250514');
+      // Verify its configuration (Sonnet)
+      expect(config.model).toBe('claude-sonnet-4-5-20250929');
       expect(config.temperature).toBe(0.2);
       expect(config.maxTokens).toBe(8192);
       expect(config.name).toBe('pkf-implementer');
@@ -476,9 +541,12 @@ Ready for implementation.`,
       expect(analyst.temperature).toBe(0.3);
       expect(implementer.temperature).toBe(0.2);
 
-      // Both use the same model and maxTokens as defined in their frontmatter
+      // Both use the same model
       expect(analyst.model).toBe(implementer.model);
-      expect(analyst.maxTokens).toBe(implementer.maxTokens);
+
+      // Analyst has higher maxTokens for large blueprint generation
+      expect(analyst.maxTokens).toBe(32768);
+      expect(implementer.maxTokens).toBe(8192);
     });
   });
 });

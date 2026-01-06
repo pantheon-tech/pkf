@@ -45,19 +45,41 @@ export declare class TimeEstimator {
  */
 export declare class DryRunReport {
     private config;
+    private client;
     /**
      * Create a new DryRunReport
      * @param config - Loaded configuration
+     * @param apiKey - Optional API key for accurate token counting
      */
-    constructor(config: LoadedConfig);
+    constructor(config: LoadedConfig, apiKey?: string);
+    /**
+     * Count tokens using the API (more accurate than heuristics)
+     * Falls back to heuristic if API unavailable
+     * @param content - Content to count tokens for
+     * @param model - Model to count for
+     * @returns Token count
+     */
+    private countTokens;
+    /**
+     * Count tokens for a file
+     * @param filePath - Path to file
+     * @returns Token count
+     */
+    private countFileTokens;
     /**
      * Calculate cost for given token usage
      */
     private calculateCost;
     /**
-     * Estimate average document size in tokens
+     * Estimate average document size in tokens (heuristic fallback)
      */
     private estimateDocSize;
+    /**
+     * Calculate actual document tokens if API is available
+     * @param markdownFiles - List of markdown file paths
+     * @returns Total tokens across all documents
+     */
+    private calculateActualDocTokens;
     /**
      * Determine project complexity based on file count and structure
      */

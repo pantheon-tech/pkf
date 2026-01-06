@@ -8,6 +8,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { ClaudeModel, AgentMessage } from '../types/index.js';
 
 /**
+ * Cache TTL options
+ */
+export type CacheTTL = '5m' | '1h';
+
+/**
  * Parameters for creating a message
  */
 export interface CreateMessageParams {
@@ -17,10 +22,60 @@ export interface CreateMessageParams {
   systemPrompt: string;
   /** Conversation messages */
   messages: AgentMessage[];
-  /** Maximum output tokens */
+  /** Maximum output tokens (up to 128K with beta) */
   maxTokens?: number;
   /** Temperature for generation */
   temperature?: number;
+  /** Enable prompt caching for system prompt (reduces cost for repeated calls) */
+  enableCaching?: boolean;
+  /** Cache TTL - '5m' (default) or '1h' (requires beta header) */
+  cacheTTL?: CacheTTL;
+  /** Enable 128K output beta (for very large outputs) */
+  enable128kOutput?: boolean;
+}
+
+/**
+ * Token count result
+ */
+export interface TokenCountResult {
+  /** Total input tokens that would be used */
+  inputTokens: number;
+}
+
+/**
+ * Tool definition for structured output
+ */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+}
+
+/**
+ * Parameters for tool-based message
+ */
+export interface CreateToolMessageParams extends CreateMessageParams {
+  /** Tool definitions */
+  tools: ToolDefinition[];
+  /** Tool choice - force use of a specific tool */
+  toolChoice?: { type: 'tool'; name: string } | { type: 'auto' } | { type: 'any' };
+}
+
+/**
+ * Result from a tool-based message
+ */
+export interface ToolMessageResult extends MessageResult {
+  /** Tool use blocks from the response */
+  toolUse: Array<{
+    type: 'tool_use';
+    id: string;
+    name: string;
+    input: unknown;
+  }>;
 }
 
 /**
@@ -37,6 +92,10 @@ export interface MessageResult {
   stopReason: string;
   /** Model used */
   model: string;
+  /** Tokens used to create cache (first call only) */
+  cacheCreationInputTokens?: number;
+  /** Tokens read from cache (subsequent calls) */
+  cacheReadInputTokens?: number;
 }
 
 /**
@@ -57,10 +116,14 @@ export interface StreamEvent {
  * Options for the Anthropic client
  */
 export interface AnthropicClientOptions {
-  /** Maximum number of retry attempts */
+  /** Maximum number of retry attempts (default: 3) */
   maxRetries?: number;
-  /** Base delay between retries in milliseconds */
+  /** Base delay between retries in milliseconds (default: 1000) */
   retryDelayMs?: number;
+  /** Whether to use OAuth authentication (authToken instead of apiKey) */
+  useOAuth?: boolean;
+  /** Request timeout in milliseconds (default: 600000 = 10 minutes, 0 = no timeout) */
+  timeout?: number;
 }
 
 /**
@@ -117,16 +180,54 @@ export class AnthropicClient {
   private client: Anthropic;
   private maxRetries: number;
   private retryDelayMs: number;
+  readonly apiKey: string;
 
   /**
    * Create a new Anthropic client
-   * @param apiKey - Anthropic API key
+   * @param apiKey - Anthropic API key or OAuth token
    * @param options - Client options
    */
   constructor(apiKey: string, options?: AnthropicClientOptions) {
-    this.client = new Anthropic({ apiKey });
+    this.apiKey = apiKey;
+    // OAuth tokens (like CLAUDE_CODE_OAUTH_TOKEN) use authToken, not apiKey
+    const useOAuth = options?.useOAuth ?? false;
+    const timeout = options?.timeout ?? 600000; // Default 10 minutes
+
+    this.client = new Anthropic(
+      useOAuth
+        ? { authToken: apiKey, timeout }
+        : { apiKey, timeout }
+    );
     this.maxRetries = options?.maxRetries ?? 3;
     this.retryDelayMs = options?.retryDelayMs ?? 1000;
+  }
+
+  /**
+   * Count tokens for a message without making a completion request
+   * Uses the /v1/messages/count_tokens endpoint
+   * @param params - Message parameters to count tokens for
+   * @returns Token count result
+   */
+  async countTokens(params: CreateMessageParams): Promise<TokenCountResult> {
+    const { model, systemPrompt, messages } = params;
+
+    // Convert our message format to Anthropic format
+    const anthropicMessages: Anthropic.MessageParam[] = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const response = await this.retry(() =>
+      this.client.messages.countTokens({
+        model,
+        system: systemPrompt,
+        messages: anthropicMessages,
+      })
+    );
+
+    return {
+      inputTokens: response.input_tokens,
+    };
   }
 
   /**
@@ -163,12 +264,23 @@ export class AnthropicClient {
   }
 
   /**
+   * Build cache control block with TTL
+   */
+  private buildCacheControl(ttl: CacheTTL = '5m'): { type: 'ephemeral'; ttl?: '5m' | '1h' } {
+    // Only include ttl if it's 1h (5m is default)
+    if (ttl === '1h') {
+      return { type: 'ephemeral' as const, ttl: '1h' };
+    }
+    return { type: 'ephemeral' as const };
+  }
+
+  /**
    * Create a message using the Anthropic API
    * @param params - Message creation parameters
    * @returns Message result with content and token usage
    */
   async createMessage(params: CreateMessageParams): Promise<MessageResult> {
-    const { model, systemPrompt, messages, maxTokens = 4096, temperature = 0.7 } = params;
+    const { model, systemPrompt, messages, maxTokens = 4096, temperature = 0.7, enableCaching = false, cacheTTL = '5m', enable128kOutput = false } = params;
 
     // Convert our message format to Anthropic format
     const anthropicMessages: Anthropic.MessageParam[] = messages.map((msg) => ({
@@ -176,13 +288,34 @@ export class AnthropicClient {
       content: msg.content,
     }));
 
+    // Build system prompt - use content block format for caching
+    const system: Anthropic.TextBlockParam[] | string = enableCaching
+      ? [
+          {
+            type: 'text' as const,
+            text: systemPrompt,
+            cache_control: this.buildCacheControl(cacheTTL),
+          },
+        ]
+      : systemPrompt;
+
+    // Add beta headers as needed
+    const betas: string[] = [];
+    if (cacheTTL === '1h') {
+      betas.push('extended-cache-ttl-2025-04-11');
+    }
+    if (enable128kOutput) {
+      betas.push('output-128k-2025-02-19');
+    }
+
     const response = await this.retry(() =>
       this.client.messages.create({
         model,
         max_tokens: maxTokens,
         temperature,
-        system: systemPrompt,
+        system,
         messages: anthropicMessages,
+        ...(betas.length > 0 && { betas }),
       })
     );
 
@@ -192,12 +325,22 @@ export class AnthropicClient {
     );
     const content = textBlocks.map((block) => block.text).join('');
 
+    // Extract cache usage from response if available
+    const usage = response.usage as {
+      input_tokens: number;
+      output_tokens: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+
     return {
       content,
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
       stopReason: response.stop_reason ?? 'unknown',
       model: response.model,
+      cacheCreationInputTokens: usage.cache_creation_input_tokens,
+      cacheReadInputTokens: usage.cache_read_input_tokens,
     };
   }
 
@@ -246,14 +389,14 @@ export class AnthropicClient {
   /**
    * Create a message with streaming, calling a callback for each text chunk
    * @param params - Message creation parameters
-   * @param onText - Callback for each text chunk
+   * @param onText - Optional callback for each text chunk (if omitted, streams silently)
    * @returns Message result with content and token usage
    */
   async createMessageStreaming(
     params: CreateMessageParams,
-    onText: (text: string) => void
+    onText?: (text: string) => void
   ): Promise<MessageResult> {
-    const { model, systemPrompt, messages, maxTokens = 4096, temperature = 0.7 } = params;
+    const { model, systemPrompt, messages, maxTokens = 4096, temperature = 0.7, enableCaching = false, cacheTTL = '5m', enable128kOutput = false } = params;
 
     // Convert our message format to Anthropic format
     const anthropicMessages: Anthropic.MessageParam[] = messages.map((msg) => ({
@@ -261,14 +404,35 @@ export class AnthropicClient {
       content: msg.content,
     }));
 
+    // Build system prompt - use content block format for caching
+    const system: Anthropic.TextBlockParam[] | string = enableCaching
+      ? [
+          {
+            type: 'text' as const,
+            text: systemPrompt,
+            cache_control: this.buildCacheControl(cacheTTL),
+          },
+        ]
+      : systemPrompt;
+
+    // Add beta headers as needed
+    const betas: string[] = [];
+    if (cacheTTL === '1h') {
+      betas.push('extended-cache-ttl-2025-04-11');
+    }
+    if (enable128kOutput) {
+      betas.push('output-128k-2025-02-19');
+    }
+
     const stream = await this.retry(() =>
       Promise.resolve(
         this.client.messages.stream({
           model,
           max_tokens: maxTokens,
           temperature,
-          system: systemPrompt,
+          system,
           messages: anthropicMessages,
+          ...(betas.length > 0 && { betas }),
         })
       )
     );
@@ -281,7 +445,9 @@ export class AnthropicClient {
         const delta = event.delta;
         if ('text' in delta) {
           content += delta.text;
-          onText(delta.text);
+          if (onText) {
+            onText(delta.text);
+          }
         }
       }
     }
@@ -289,12 +455,127 @@ export class AnthropicClient {
     // Get final message for token counts
     const finalMessage = await stream.finalMessage();
 
+    // Extract cache usage from response if available
+    const usage = finalMessage.usage as {
+      input_tokens: number;
+      output_tokens: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+
     return {
       content,
-      inputTokens: finalMessage.usage.input_tokens,
-      outputTokens: finalMessage.usage.output_tokens,
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
       stopReason: finalMessage.stop_reason ?? 'unknown',
       model: finalMessage.model,
+      cacheCreationInputTokens: usage.cache_creation_input_tokens,
+      cacheReadInputTokens: usage.cache_read_input_tokens,
+    };
+  }
+
+  /**
+   * Create a message with tool use for structured output
+   * @param params - Message creation parameters with tools
+   * @returns Message result with tool use blocks
+   */
+  async createMessageWithTools(params: CreateToolMessageParams): Promise<ToolMessageResult> {
+    const {
+      model,
+      systemPrompt,
+      messages,
+      maxTokens = 4096,
+      temperature = 0.7,
+      enableCaching = false,
+      cacheTTL = '5m',
+      enable128kOutput = false,
+      tools,
+      toolChoice,
+    } = params;
+
+    // Convert our message format to Anthropic format
+    const anthropicMessages: Anthropic.MessageParam[] = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // Build system prompt - use content block format for caching
+    const system: Anthropic.TextBlockParam[] | string = enableCaching
+      ? [
+          {
+            type: 'text' as const,
+            text: systemPrompt,
+            cache_control: this.buildCacheControl(cacheTTL),
+          },
+        ]
+      : systemPrompt;
+
+    // Add beta headers as needed
+    const betas: string[] = [];
+    if (cacheTTL === '1h') {
+      betas.push('extended-cache-ttl-2025-04-11');
+    }
+    if (enable128kOutput) {
+      betas.push('output-128k-2025-02-19');
+    }
+
+    // Build tool choice parameter
+    let tool_choice: Anthropic.ToolChoice | undefined;
+    if (toolChoice) {
+      if (toolChoice.type === 'tool') {
+        tool_choice = { type: 'tool', name: toolChoice.name };
+      } else {
+        tool_choice = { type: toolChoice.type };
+      }
+    }
+
+    const response = await this.retry(() =>
+      this.client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        temperature,
+        system,
+        messages: anthropicMessages,
+        tools: tools as Anthropic.Tool[],
+        tool_choice,
+        ...(betas.length > 0 && { betas }),
+      })
+    );
+
+    // Extract text content
+    const textBlocks = response.content.filter(
+      (block): block is Anthropic.TextBlock => block.type === 'text'
+    );
+    const content = textBlocks.map((block) => block.text).join('');
+
+    // Extract tool use blocks
+    const toolUseBlocks = response.content.filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+    );
+    const toolUse = toolUseBlocks.map((block) => ({
+      type: 'tool_use' as const,
+      id: block.id,
+      name: block.name,
+      input: block.input,
+    }));
+
+    // Extract cache usage
+    const usage = response.usage as {
+      input_tokens: number;
+      output_tokens: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+
+    return {
+      content,
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
+      stopReason: response.stop_reason ?? 'unknown',
+      model: response.model,
+      cacheCreationInputTokens: usage.cache_creation_input_tokens,
+      cacheReadInputTokens: usage.cache_read_input_tokens,
+      toolUse,
     };
   }
 }

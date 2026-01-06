@@ -3,6 +3,7 @@
  * AI-assisted initialization for PKF in existing projects
  */
 export * from './types/index.js';
+export { AVAILABLE_MODELS, type ModelInfo } from './types/index.js';
 export { WorkflowStateManager } from './state/workflow-state.js';
 export { InitLockManager } from './state/lock-manager.js';
 export { ConfigLoader } from './config/loader.js';

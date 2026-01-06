@@ -150,16 +150,16 @@ describe('Phase 1 Integration Tests', () => {
       const tracker = new CostTracker();
 
       // Record usage for 3 different model calls
-      const sonnetModel: ClaudeModel = 'claude-sonnet-4-20250514';
-      const haikuModel: ClaudeModel = 'claude-haiku-3-5-20241022';
-      const opusModel: ClaudeModel = 'claude-opus-4-20250514';
+      const sonnetModel: ClaudeModel = 'claude-sonnet-4-5-20250929';
+      const haikuModel: ClaudeModel = 'claude-haiku-4-5-20251001';
+      const opusModel: ClaudeModel = 'claude-opus-4-5-20251101';
 
       // Sonnet: $3.00/M input, $15.00/M output
       // 1000 input + 500 output = (1000/1M)*3 + (500/1M)*15 = 0.003 + 0.0075 = 0.0105
       const cost1 = tracker.recordUsage(sonnetModel, 1000, 500);
 
-      // Haiku: $0.80/M input, $4.00/M output
-      // 2000 input + 1000 output = (2000/1M)*0.8 + (1000/1M)*4 = 0.0016 + 0.004 = 0.0056
+      // Haiku: $1.00/M input, $5.00/M output
+      // 2000 input + 1000 output = (2000/1M)*1 + (1000/1M)*5 = 0.002 + 0.005 = 0.007
       const cost2 = tracker.recordUsage(haikuModel, 2000, 1000);
 
       // Opus: $15.00/M input, $75.00/M output
@@ -169,7 +169,8 @@ describe('Phase 1 Integration Tests', () => {
       // Verify total cost equals sum of individual costs
       const expectedTotal = cost1 + cost2 + cost3;
       expect(tracker.getTotalCost()).toBeCloseTo(expectedTotal, 6);
-      expect(tracker.getTotalCost()).toBeCloseTo(0.0105 + 0.0056 + 0.0225, 4);
+      // Sonnet: 0.0105, Haiku: 0.007, Opus: 0.0225
+      expect(tracker.getTotalCost()).toBeCloseTo(0.0105 + 0.007 + 0.0225, 4);
 
       // Verify token counts are correct
       // Total: (1000+500) + (2000+1000) + (500+200) = 1500 + 3000 + 700 = 5200
@@ -198,20 +199,20 @@ describe('Phase 1 Integration Tests', () => {
       const tracker = new CostTracker(0.01);
 
       // Record small usage that's under budget
-      // Haiku: (100/1M)*0.8 + (50/1M)*4 = 0.00008 + 0.0002 = 0.00028
-      const smallCost = tracker.recordUsage('claude-haiku-3-5-20241022', 100, 50);
+      // Haiku: (100/1M)*1 + (50/1M)*5 = 0.0001 + 0.00025 = 0.00035
+      const smallCost = tracker.recordUsage('claude-haiku-4-5-20251001', 100, 50);
       expect(smallCost).toBeLessThan(0.01);
       expect(tracker.getTotalCost()).toBeLessThan(0.01);
 
       // Attempt to record large usage that exceeds budget
       // Opus: (100000/1M)*15 + (50000/1M)*75 = 1.5 + 3.75 = 5.25 (way over budget)
       expect(() => {
-        tracker.recordUsage('claude-opus-4-20250514', 100000, 50000);
+        tracker.recordUsage('claude-opus-4-5-20251101', 100000, 50000);
       }).toThrow(BudgetExceededError);
 
       // Verify BudgetExceededError has correct code
       try {
-        tracker.recordUsage('claude-opus-4-20250514', 100000, 50000);
+        tracker.recordUsage('claude-opus-4-5-20251101', 100000, 50000);
       } catch (error) {
         expect(error).toBeInstanceOf(BudgetExceededError);
         expect((error as BudgetExceededError).code).toBe('BUDGET_EXCEEDED');

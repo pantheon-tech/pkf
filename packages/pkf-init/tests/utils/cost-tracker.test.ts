@@ -15,10 +15,10 @@ describe('CostTracker', () => {
 
   describe('recordUsage', () => {
     it('records usage correctly for sonnet', () => {
-      const model: ClaudeModel = 'claude-sonnet-4-20250514';
+      const model: ClaudeModel = 'claude-sonnet-4-5-20250929';
       const cost = tracker.recordUsage(model, 1000, 500);
 
-      // sonnet: $3.00/M input, $15.00/M output
+      // Sonnet: $3.00/M input, $15.00/M output
       // Expected: (1000/1M) * $3.00 + (500/1M) * $15.00
       // = 0.003 + 0.0075 = 0.0105
       expect(cost).toBeCloseTo(0.0105, 6);
@@ -26,20 +26,20 @@ describe('CostTracker', () => {
     });
 
     it('records usage correctly for haiku', () => {
-      const model: ClaudeModel = 'claude-haiku-3-5-20241022';
+      const model: ClaudeModel = 'claude-haiku-4-5-20251001';
       const cost = tracker.recordUsage(model, 10000, 2000);
 
-      // haiku: $0.80/M input, $4.00/M output
-      // Expected: (10000/1M) * $0.80 + (2000/1M) * $4.00
-      // = 0.008 + 0.008 = 0.016
-      expect(cost).toBeCloseTo(0.016, 6);
+      // Haiku: $1.00/M input, $5.00/M output
+      // Expected: (10000/1M) * $1.00 + (2000/1M) * $5.00
+      // = 0.01 + 0.01 = 0.02
+      expect(cost).toBeCloseTo(0.02, 6);
     });
 
     it('records usage correctly for opus', () => {
-      const model: ClaudeModel = 'claude-opus-4-20250514';
+      const model: ClaudeModel = 'claude-opus-4-5-20251101';
       const cost = tracker.recordUsage(model, 5000, 1000);
 
-      // opus: $15.00/M input, $75.00/M output
+      // Opus: $15.00/M input, $75.00/M output
       // Expected: (5000/1M) * $15.00 + (1000/1M) * $75.00
       // = 0.075 + 0.075 = 0.15
       expect(cost).toBeCloseTo(0.15, 6);
@@ -48,7 +48,7 @@ describe('CostTracker', () => {
     it('calculates cost correctly (verify math)', () => {
       // Use unlimited tracker for this test to avoid budget constraint
       const unlimitedTracker = new CostTracker();
-      const model: ClaudeModel = 'claude-sonnet-4-20250514';
+      const model: ClaudeModel = 'claude-sonnet-4-5-20250929';
 
       // 1 million input tokens = $3.00
       // 1 million output tokens = $15.00
@@ -60,8 +60,8 @@ describe('CostTracker', () => {
 
   describe('getTotalTokens', () => {
     it('tracks total tokens', () => {
-      tracker.recordUsage('claude-sonnet-4-20250514', 1000, 500);
-      tracker.recordUsage('claude-haiku-3-5-20241022', 2000, 1000);
+      tracker.recordUsage('claude-sonnet-4-5-20250929', 1000, 500);
+      tracker.recordUsage('claude-haiku-4-5-20251001', 2000, 1000);
 
       expect(tracker.getTotalTokens()).toBe(4500); // 1000+500+2000+1000
     });
@@ -69,20 +69,20 @@ describe('CostTracker', () => {
 
   describe('getUsageByModel', () => {
     it('returns correct breakdown', () => {
-      tracker.recordUsage('claude-sonnet-4-20250514', 1000, 500);
-      tracker.recordUsage('claude-sonnet-4-20250514', 2000, 1000);
-      tracker.recordUsage('claude-haiku-3-5-20241022', 5000, 2000);
+      tracker.recordUsage('claude-sonnet-4-5-20250929', 1000, 500);
+      tracker.recordUsage('claude-sonnet-4-5-20250929', 2000, 1000);
+      tracker.recordUsage('claude-haiku-4-5-20251001', 5000, 2000);
 
       const usageByModel = tracker.getUsageByModel();
 
       // Sonnet usage
-      const sonnetUsage = usageByModel.get('claude-sonnet-4-20250514');
+      const sonnetUsage = usageByModel.get('claude-sonnet-4-5-20250929');
       expect(sonnetUsage).toBeDefined();
       expect(sonnetUsage?.inputTokens).toBe(3000);
       expect(sonnetUsage?.outputTokens).toBe(1500);
 
       // Haiku usage
-      const haikuUsage = usageByModel.get('claude-haiku-3-5-20241022');
+      const haikuUsage = usageByModel.get('claude-haiku-4-5-20251001');
       expect(haikuUsage).toBeDefined();
       expect(haikuUsage?.inputTokens).toBe(5000);
       expect(haikuUsage?.outputTokens).toBe(2000);
@@ -91,7 +91,7 @@ describe('CostTracker', () => {
 
   describe('estimateCost', () => {
     it('estimates cost without recording usage', () => {
-      const estimated = tracker.estimateCost('claude-sonnet-4-20250514', 10000, 5000);
+      const estimated = tracker.estimateCost('claude-sonnet-4-5-20250929', 10000, 5000);
 
       // Should return estimated cost
       // (10000/1M) * $3.00 + (5000/1M) * $15.00 = 0.03 + 0.075 = 0.105
@@ -109,7 +109,7 @@ describe('CostTracker', () => {
 
       // This should exceed the budget
       expect(() => {
-        smallBudgetTracker.recordUsage('claude-opus-4-20250514', 100000, 50000);
+        smallBudgetTracker.recordUsage('claude-opus-4-5-20251101', 100000, 50000);
       }).toThrow(BudgetExceededError);
     });
 
@@ -117,7 +117,7 @@ describe('CostTracker', () => {
       const smallBudgetTracker = new CostTracker(0.01);
 
       try {
-        smallBudgetTracker.recordUsage('claude-opus-4-20250514', 100000, 50000);
+        smallBudgetTracker.recordUsage('claude-opus-4-5-20251101', 100000, 50000);
       } catch (error) {
         expect(error).toBeInstanceOf(BudgetExceededError);
         expect((error as BudgetExceededError).code).toBe('BUDGET_EXCEEDED');
@@ -128,7 +128,7 @@ describe('CostTracker', () => {
 
   describe('getRemainingBudget', () => {
     it('returns correct remaining value', () => {
-      tracker.recordUsage('claude-sonnet-4-20250514', 100000, 50000);
+      tracker.recordUsage('claude-sonnet-4-5-20250929', 100000, 50000);
       // Cost: (100000/1M) * $3.00 + (50000/1M) * $15.00 = 0.3 + 0.75 = 1.05
 
       const remaining = tracker.getRemainingBudget();
@@ -145,8 +145,8 @@ describe('CostTracker', () => {
 
   describe('reset', () => {
     it('clears all tracking', () => {
-      tracker.recordUsage('claude-sonnet-4-20250514', 10000, 5000);
-      tracker.recordUsage('claude-haiku-3-5-20241022', 5000, 2000);
+      tracker.recordUsage('claude-sonnet-4-5-20250929', 10000, 5000);
+      tracker.recordUsage('claude-haiku-4-5-20251001', 5000, 2000);
 
       tracker.reset();
 

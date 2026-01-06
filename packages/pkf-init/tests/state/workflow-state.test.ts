@@ -237,4 +237,131 @@ describe('WorkflowStateManager', () => {
       expect(stateManager.canResume()).toBe(false);
     });
   });
+
+  describe('state migration', () => {
+    it('loads and migrates legacy state without version', async () => {
+      // Create a legacy state file without version field
+      const legacyState = {
+        startedAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+        currentStage: WorkflowStage.ANALYZING,
+        checkpoints: [],
+        apiCallCount: 5,
+        totalCost: 1.5,
+        totalTokens: 1000,
+      };
+
+      const statePath = path.join(tempDir, '.pkf-init-state.json');
+      await fs.writeFile(statePath, JSON.stringify(legacyState), 'utf-8');
+
+      // Load should migrate it to current version
+      const loadedState = await stateManager.load();
+
+      expect(loadedState).toBeDefined();
+      expect(loadedState?.version).toBe('1.0.0');
+      expect(loadedState?.apiCallCount).toBe(5);
+      expect(loadedState?.currentStage).toBe(WorkflowStage.ANALYZING);
+    });
+
+    it('loads state with old version and migrates to current', async () => {
+      // Create a state file with version 1.0.0
+      const oldState = {
+        version: '1.0.0',
+        startedAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+        currentStage: WorkflowStage.DESIGNING,
+        checkpoints: [
+          {
+            stage: WorkflowStage.ANALYZING,
+            timestamp: '2025-01-01T01:00:00Z',
+            description: 'Analysis complete',
+          },
+        ],
+        apiCallCount: 10,
+        totalCost: 2.5,
+        totalTokens: 5000,
+      };
+
+      const statePath = path.join(tempDir, '.pkf-init-state.json');
+      await fs.writeFile(statePath, JSON.stringify(oldState), 'utf-8');
+
+      // Load should succeed and preserve all data
+      const loadedState = await stateManager.load();
+
+      expect(loadedState).toBeDefined();
+      expect(loadedState?.version).toBe('1.0.0'); // Current version
+      expect(loadedState?.checkpoints).toHaveLength(1);
+      expect(loadedState?.apiCallCount).toBe(10);
+    });
+
+    it('throws error when loading invalid state structure', async () => {
+      // Create a state file missing required fields
+      const invalidState = {
+        version: '1.0.0',
+        startedAt: '2025-01-01T00:00:00Z',
+        // Missing required fields
+      };
+
+      const statePath = path.join(tempDir, '.pkf-init-state.json');
+      await fs.writeFile(statePath, JSON.stringify(invalidState), 'utf-8');
+
+      // Load should throw validation error
+      await expect(stateManager.load()).rejects.toThrow();
+    });
+
+    it('saves state with current version', async () => {
+      const state = stateManager.createInitialState();
+
+      await stateManager.save(state);
+
+      const statePath = path.join(tempDir, '.pkf-init-state.json');
+      const content = await fs.readFile(statePath, 'utf-8');
+      const savedState = JSON.parse(content);
+
+      expect(savedState.version).toBe('1.0.0');
+    });
+
+    it('rejects saving invalid state', async () => {
+      const invalidState = {
+        version: '1.0.0',
+        // Missing required fields
+      } as any;
+
+      await expect(stateManager.save(invalidState)).rejects.toThrow(
+        'Cannot save invalid state'
+      );
+    });
+
+    it('preserves stage-specific state during migration', async () => {
+      // Create state with stage-specific data
+      const oldState = {
+        version: '1.0.0',
+        startedAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+        currentStage: WorkflowStage.IMPLEMENTING,
+        checkpoints: [],
+        apiCallCount: 15,
+        totalCost: 3.5,
+        totalTokens: 7500,
+        analysis: {
+          complete: true,
+          blueprint: 'test blueprint',
+          discoveredDocs: ['doc1.md', 'doc2.md'],
+        },
+        design: {
+          complete: true,
+          schemasYaml: 'schemas: test',
+        },
+      };
+
+      const statePath = path.join(tempDir, '.pkf-init-state.json');
+      await fs.writeFile(statePath, JSON.stringify(oldState), 'utf-8');
+
+      const loadedState = await stateManager.load();
+
+      expect(loadedState?.analysis?.complete).toBe(true);
+      expect(loadedState?.analysis?.blueprint).toBe('test blueprint');
+      expect(loadedState?.design?.complete).toBe(true);
+    });
+  });
 });

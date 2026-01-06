@@ -11,6 +11,16 @@ export declare class BudgetExceededError extends Error {
     constructor(currentCost: number, maxCost: number);
 }
 /**
+ * Model usage statistics
+ */
+interface ModelUsage {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
+    cost: number;
+}
+/**
  * Tracks API costs with budget enforcement
  */
 export declare class CostTracker {
@@ -18,6 +28,8 @@ export declare class CostTracker {
     private totalCost;
     private totalInputTokens;
     private totalOutputTokens;
+    private totalCacheCreationTokens;
+    private totalCacheReadTokens;
     private usageByModel;
     /**
      * Create a new CostTracker
@@ -25,7 +37,7 @@ export declare class CostTracker {
      */
     constructor(maxCost?: number);
     /**
-     * Calculate cost for given token usage
+     * Calculate cost for given token usage (including cache tokens)
      */
     private calculateCost;
     /**
@@ -33,10 +45,12 @@ export declare class CostTracker {
      * @param model - The Claude model used
      * @param inputTokens - Number of input tokens
      * @param outputTokens - Number of output tokens
+     * @param cacheCreationTokens - Number of tokens used to create cache (optional)
+     * @param cacheReadTokens - Number of tokens read from cache (optional)
      * @returns The cost of this usage in USD
      * @throws BudgetExceededError if recording would exceed maxCost
      */
-    recordUsage(model: ClaudeModel, inputTokens: number, outputTokens: number): number;
+    recordUsage(model: ClaudeModel, inputTokens: number, outputTokens: number, cacheCreationTokens?: number, cacheReadTokens?: number): number;
     /**
      * Get the total accumulated cost in USD
      */
@@ -46,13 +60,32 @@ export declare class CostTracker {
      */
     getTotalTokens(): number;
     /**
+     * Get total input tokens
+     */
+    getTotalInputTokens(): number;
+    /**
+     * Get total output tokens
+     */
+    getTotalOutputTokens(): number;
+    /**
+     * Get cache creation tokens
+     */
+    getCacheCreationTokens(): number;
+    /**
+     * Get cache read tokens
+     */
+    getCacheReadTokens(): number;
+    /**
+     * Get cache token totals
+     */
+    getCacheTokens(): {
+        cacheCreationTokens: number;
+        cacheReadTokens: number;
+    };
+    /**
      * Get usage breakdown by model
      */
-    getUsageByModel(): Map<ClaudeModel, {
-        inputTokens: number;
-        outputTokens: number;
-        cost: number;
-    }>;
+    getUsageByModel(): Map<ClaudeModel, ModelUsage>;
     /**
      * Estimate cost without recording usage
      * @param model - The Claude model
@@ -74,6 +107,11 @@ export declare class CostTracker {
      * Reset all tracking
      */
     reset(): void;
+    /**
+     * Calculate estimated savings from cache usage
+     * Returns the amount saved compared to paying full price for all cached tokens
+     */
+    getEstimatedCacheSavings(): number;
 }
 export default CostTracker;
 //# sourceMappingURL=cost-tracker.d.ts.map

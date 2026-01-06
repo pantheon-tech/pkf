@@ -1,12 +1,12 @@
 /**
  * PKF Init Rollback Manager
- * Provides rollback functionality to restore from backups
+ * Provides rollback functionality to restore from backups and reverse migrations
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { WorkflowStateManager } from '../state/workflow-state.js';
-import type { LoadedConfig } from '../types/index.js';
+import type { LoadedConfig, MigrationOperation } from '../types/index.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -19,6 +19,10 @@ export interface RollbackResult {
   removedFiles: string[];
   /** List of files that were restored */
   restoredFiles: string[];
+  /** List of files that were moved back to original locations */
+  movedBack: string[];
+  /** Number of operations rolled back */
+  operationsRolledBack: number;
   /** Error message if rollback failed */
   error?: string;
 }
@@ -55,7 +59,7 @@ export class RollbackManager {
   }
 
   /**
-   * Perform rollback operation
+   * Perform rollback operation using backup
    * @param backupPath - Path to backup directory
    * @returns Rollback result
    */
@@ -72,6 +76,8 @@ export class RollbackManager {
           success: false,
           removedFiles: [],
           restoredFiles: [],
+          movedBack: [],
+          operationsRolledBack: 0,
           error: `Backup not found at: ${backupPath}`,
         };
       }
@@ -99,6 +105,8 @@ export class RollbackManager {
         success: true,
         removedFiles,
         restoredFiles,
+        movedBack: [],
+        operationsRolledBack: 0,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -108,8 +116,211 @@ export class RollbackManager {
         success: false,
         removedFiles: [],
         restoredFiles: [],
+        movedBack: [],
+        operationsRolledBack: 0,
         error: errorMessage,
       };
+    }
+  }
+
+  /**
+   * Rollback migration operations in reverse order
+   * This reverses the effects of file moves, writes, and deletes
+   *
+   * @param operations - List of operations to rollback (in original order)
+   * @param backupPath - Optional backup path for content restoration
+   * @returns Rollback result
+   */
+  async rollbackOperations(
+    operations: MigrationOperation[],
+    backupPath?: string
+  ): Promise<RollbackResult> {
+    logger.stage('Rollback Operations');
+
+    const removedFiles: string[] = [];
+    const restoredFiles: string[] = [];
+    const movedBack: string[] = [];
+    let operationsRolledBack = 0;
+
+    try {
+      // Reverse the operations list to undo in correct order
+      const reversedOps = [...operations].reverse();
+
+      for (const op of reversedOps) {
+        // Skip failed operations - nothing to rollback
+        if (op.status === 'failed') {
+          continue;
+        }
+
+        try {
+          switch (op.type) {
+            case 'write':
+              // Undo a write by deleting the file
+              // If we have a backup, we'll restore original content later
+              await this.removeFile(op.sourcePath);
+              removedFiles.push(op.sourcePath);
+              operationsRolledBack++;
+              logger.debug(`Rolled back write: ${op.sourcePath}`);
+              break;
+
+            case 'delete':
+              // Undo a delete by restoring from backup
+              if (backupPath) {
+                const restored = await this.restoreFileFromBackup(
+                  op.sourcePath,
+                  backupPath
+                );
+                if (restored) {
+                  restoredFiles.push(op.sourcePath);
+                  operationsRolledBack++;
+                  logger.debug(`Restored deleted file: ${op.sourcePath}`);
+                }
+              } else {
+                logger.warn(`Cannot restore ${op.sourcePath} - no backup available`);
+              }
+              break;
+
+            case 'move':
+              // Undo a move by moving back to original location
+              if (op.targetPath) {
+                const moved = await this.moveFileBack(op.targetPath, op.sourcePath);
+                if (moved) {
+                  movedBack.push(op.sourcePath);
+                  operationsRolledBack++;
+                  logger.debug(`Moved back: ${op.targetPath} -> ${op.sourcePath}`);
+                }
+              }
+              break;
+
+            case 'copy':
+              // Undo a copy by removing the target and restoring source if deleted
+              if (op.targetPath) {
+                await this.removeFile(op.targetPath);
+                removedFiles.push(op.targetPath);
+                operationsRolledBack++;
+              }
+              break;
+
+            case 'update_reference':
+              // Reference updates are handled by restoring original content from backup
+              // The write rollback above handles this
+              break;
+
+            default:
+              logger.warn(`Unknown operation type: ${(op as MigrationOperation).type}`);
+          }
+        } catch (error) {
+          logger.warn(`Failed to rollback operation: ${error instanceof Error ? error.message : String(error)}`);
+          // Continue with other operations
+        }
+      }
+
+      // Restore any deleted source files from backup
+      if (backupPath && restoredFiles.length === 0) {
+        logger.step('Restoring from backup...');
+        const restored = await this.restoreFromBackup(backupPath);
+        restoredFiles.push(...restored);
+      }
+
+      logger.success(`Rollback completed: ${operationsRolledBack} operations reversed`);
+
+      return {
+        success: true,
+        removedFiles,
+        restoredFiles,
+        movedBack,
+        operationsRolledBack,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Operation rollback failed: ${errorMessage}`);
+
+      return {
+        success: false,
+        removedFiles,
+        restoredFiles,
+        movedBack,
+        operationsRolledBack,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Move a file back to its original location
+   * @param currentPath - Current file path
+   * @param originalPath - Original file path
+   * @returns True if move was successful
+   */
+  private async moveFileBack(currentPath: string, originalPath: string): Promise<boolean> {
+    try {
+      const absoluteCurrent = path.isAbsolute(currentPath)
+        ? currentPath
+        : path.join(this.config.rootDir, currentPath);
+
+      const absoluteOriginal = path.isAbsolute(originalPath)
+        ? originalPath
+        : path.join(this.config.rootDir, originalPath);
+
+      // Check current file exists
+      try {
+        await fs.access(absoluteCurrent);
+      } catch {
+        logger.debug(`Source file not found for move back: ${currentPath}`);
+        return false;
+      }
+
+      // Create parent directory for original location
+      const parentDir = path.dirname(absoluteOriginal);
+      await fs.mkdir(parentDir, { recursive: true });
+
+      // Move file back
+      await fs.rename(absoluteCurrent, absoluteOriginal);
+
+      return true;
+    } catch {
+      logger.warn(`Failed to move file back: ${currentPath} -> ${originalPath}`);
+      return false;
+    }
+  }
+
+  /**
+   * Restore a single file from backup
+   * @param filePath - Relative file path
+   * @param backupPath - Path to backup directory
+   * @returns True if file was restored
+   */
+  private async restoreFileFromBackup(
+    filePath: string,
+    backupPath: string
+  ): Promise<boolean> {
+    try {
+      const relativePath = path.isAbsolute(filePath)
+        ? path.relative(this.config.rootDir, filePath)
+        : filePath;
+
+      const backupFilePath = path.join(backupPath, relativePath);
+      const targetPath = path.join(this.config.rootDir, relativePath);
+
+      // Check backup file exists
+      try {
+        await fs.access(backupFilePath);
+      } catch {
+        logger.debug(`Backup file not found: ${backupFilePath}`);
+        return false;
+      }
+
+      // Create parent directory
+      const parentDir = path.dirname(targetPath);
+      await fs.mkdir(parentDir, { recursive: true });
+
+      // Copy from backup
+      await fs.copyFile(backupFilePath, targetPath);
+
+      return true;
+    } catch {
+      logger.warn(`Failed to restore file from backup: ${filePath}`);
+      return false;
     }
   }
 

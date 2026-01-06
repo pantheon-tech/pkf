@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "startedAt": "2026-01-05T10:32:10.352Z",
+  "updatedAt": "2026-01-05T10:32:10.353Z",
+  "currentStage": "not_started",
+  "checkpoints": [],
+  "apiCallCount": 0,
+  "totalCost": 0,
+  "totalTokens": 0,
+  "maxCost": 50
+}

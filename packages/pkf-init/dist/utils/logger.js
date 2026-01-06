@@ -153,21 +153,22 @@ export function isStreaming() {
     return streamingMode;
 }
 /**
- * Create a stream callback function for the orchestrator
- * @param label - Optional label for the stream
- * @returns Callback function
+ * Create a callback for streaming text output
  */
 export function createStreamCallback(label) {
-    let started = false;
     return (text) => {
-        if (!started) {
+        if (!streamingMode) {
             startStreaming(label);
-            started = true;
         }
         streamText(text);
     };
 }
+/**
+ * Default export - object with all logger functions
+ */
 export default {
+    setVerbose,
+    isVerbose,
     debug,
     info,
     success,
@@ -177,8 +178,6 @@ export default {
     step,
     cost,
     tokens,
-    setVerbose,
-    isVerbose,
     createLogger,
     startStreaming,
     streamText,

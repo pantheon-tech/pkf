@@ -5,7 +5,7 @@
 
 import { readFile, writeFile, access } from 'fs/promises';
 import { join } from 'path';
-import * as yaml from 'js-yaml';
+import { safeLoad, safeDump } from '../utils/yaml.js';
 import type { GeneratedStructure } from './structure.js';
 
 /**
@@ -77,7 +77,7 @@ export class ConfigGenerator {
     structure: GeneratedStructure
   ): Promise<string> {
     // Parse schemas.yaml
-    const schemas = yaml.load(schemasYaml) as Record<string, unknown>;
+    const schemas = safeLoad(schemasYaml) as Record<string, unknown>;
 
     // Get all created directories
     const allDirs = [...structure.createdDirs, ...structure.existingDirs];
@@ -86,13 +86,11 @@ export class ConfigGenerator {
     const config = await this.buildConfig(schemas, allDirs);
 
     // Convert to YAML with nice formatting
-    return yaml.dump(config, {
+    return safeDump(config, {
       indent: 2,
       lineWidth: 100,
       noRefs: true,
       sortKeys: false,
-      quotingType: '"',
-      forceQuotes: false,
     });
   }
 

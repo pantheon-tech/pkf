@@ -13,19 +13,22 @@ const __dirname = dirname(__filename);
 /**
  * Default model settings if not specified in frontmatter
  */
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 4096;
 /**
  * Map frontmatter model names to ClaudeModel types
+ * Supports short names (opus, sonnet, haiku) and full model IDs
  */
 const MODEL_MAP = {
-    opus: 'claude-opus-4-20250514',
-    sonnet: 'claude-sonnet-4-20250514',
-    haiku: 'claude-haiku-3-5-20241022',
-    'claude-opus-4-20250514': 'claude-opus-4-20250514',
-    'claude-sonnet-4-20250514': 'claude-sonnet-4-20250514',
-    'claude-haiku-3-5-20241022': 'claude-haiku-3-5-20241022',
+    // Short names (use latest versions)
+    opus: 'claude-opus-4-5-20251101',
+    sonnet: 'claude-sonnet-4-5-20250929',
+    haiku: 'claude-haiku-4-5-20251001',
+    // Full model IDs
+    'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101',
+    'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
+    'claude-haiku-4-5-20251001': 'claude-haiku-4-5-20251001',
 };
 /**
  * Parse YAML frontmatter from markdown content
@@ -85,6 +88,12 @@ function parseFrontmatter(content) {
                 }
                 break;
             }
+            case 'caching':
+            case 'enableCaching':
+            case 'enable_caching': {
+                frontmatter.enableCaching = value.toLowerCase() === 'true';
+                break;
+            }
         }
     }
     return { frontmatter, body };
@@ -129,13 +138,17 @@ export async function loadAgentConfig(agentName, agentsDir) {
             model = mappedModel;
         }
     }
-    return {
+    const config = {
         name: frontmatter.name ?? agentName,
         instructions: body,
         model,
         temperature: frontmatter.temperature ?? DEFAULT_TEMPERATURE,
         maxTokens: frontmatter.maxTokens ?? DEFAULT_MAX_TOKENS,
+        enableCaching: frontmatter.enableCaching,
     };
+    // Debug log to trace maxTokens issue
+    console.log(`[DEBUG] Loaded agent "${agentName}": maxTokens=${config.maxTokens}, from="${filePath}"`);
+    return config;
 }
 export default loadAgentConfig;
 //# sourceMappingURL=agent-loader.js.map

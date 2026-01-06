@@ -36,7 +36,8 @@ describe('loadAgentConfig', () => {
     const config = await loadAgentConfig('test-agent', fixturesDir);
 
     expect(config.name).toBe('Test Agent');
-    expect(config.model).toBe('claude-opus-4-20250514');
+    // 'opus' short name maps to opus model
+    expect(config.model).toBe('claude-opus-4-5-20251101');
     expect(config.temperature).toBe(0.5);
     expect(config.maxTokens).toBe(8192);
   });
@@ -54,15 +55,15 @@ describe('loadAgentConfig', () => {
     const config = await loadAgentConfig('test-agent', fixturesDir);
 
     // 'opus' in frontmatter should map to full model ID
-    expect(config.model).toBe('claude-opus-4-20250514');
+    expect(config.model).toBe('claude-opus-4-5-20251101');
   });
 
   it('handles missing optional fields with defaults', async () => {
     const config = await loadAgentConfig('minimal-agent', fixturesDir);
 
     expect(config.name).toBe('Minimal Agent');
-    // Should use default values
-    expect(config.model).toBe('claude-sonnet-4-20250514');
+    // Should use default values (Sonnet)
+    expect(config.model).toBe('claude-sonnet-4-5-20250929');
     expect(config.temperature).toBe(0.7);
     expect(config.maxTokens).toBe(4096);
   });

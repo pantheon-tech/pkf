@@ -10,6 +10,8 @@ import { TokenEstimator } from '../utils/token-estimator.js';
 import type { AgentMessage, AgentResult, AgentConfig } from '../types/index.js';
 import { loadAgentConfig } from './agent-loader.js';
 import { detectConvergence } from './convergence.js';
+import * as logger from '../utils/logger.js';
+import type { PKFConfig } from '../config/pkf-config.js';
 
 /**
  * Callback for streaming text output
@@ -26,12 +28,9 @@ export interface AgentOrchestratorOptions {
   streaming?: boolean;
   /** Callback for streaming text chunks */
   onStream?: StreamCallback;
+  /** PKF configuration */
+  pkfConfig?: PKFConfig;
 }
-
-/**
- * Default maximum iterations for agent conversations
- */
-const DEFAULT_MAX_ITERATIONS = 5;
 
 /**
  * AgentOrchestrator handles execution and coordination of AI agents
@@ -49,6 +48,7 @@ export class AgentOrchestrator {
   private agentsDir?: string;
   private streaming: boolean;
   private onStream?: StreamCallback;
+  private maxIterations: number;
 
   /**
    * Create a new AgentOrchestrator
@@ -70,6 +70,7 @@ export class AgentOrchestrator {
     this.agentsDir = options?.agentsDir;
     this.streaming = options?.streaming ?? false;
     this.onStream = options?.onStream;
+    this.maxIterations = options?.pkfConfig?.orchestration.maxIterations ?? 5;
   }
 
   /**
@@ -113,6 +114,7 @@ export class AgentOrchestrator {
             messages,
             maxTokens: agentConfig.maxTokens,
             temperature: agentConfig.temperature,
+            enableCaching: agentConfig.enableCaching,
           },
           this.onStream
         );
@@ -123,14 +125,17 @@ export class AgentOrchestrator {
           messages,
           maxTokens: agentConfig.maxTokens,
           temperature: agentConfig.temperature,
+          enableCaching: agentConfig.enableCaching,
         });
       }
 
-      // Record cost
+      // Record cost (with cache-aware pricing)
       const cost = this.costTracker.recordUsage(
         agentConfig.model,
         result.inputTokens,
-        result.outputTokens
+        result.outputTokens,
+        result.cacheCreationInputTokens,
+        result.cacheReadInputTokens
       );
 
       return {
@@ -140,6 +145,8 @@ export class AgentOrchestrator {
         tokensUsed: result.inputTokens + result.outputTokens,
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
+        cacheCreationTokens: result.cacheCreationInputTokens,
+        cacheReadTokens: result.cacheReadInputTokens,
         metadata: {
           agentName,
           model: agentConfig.model,
@@ -167,15 +174,16 @@ export class AgentOrchestrator {
    * @param agent1Name - Name of the first agent
    * @param agent2Name - Name of the second agent
    * @param initialPrompt - Initial prompt to start the conversation
-   * @param maxIterations - Maximum number of conversation rounds (default 5)
+   * @param maxIterations - Maximum number of conversation rounds (uses config value if not specified)
    * @returns AgentResult with final output and aggregated statistics
    */
   async agentConversation(
     agent1Name: string,
     agent2Name: string,
     initialPrompt: string,
-    maxIterations: number = DEFAULT_MAX_ITERATIONS
+    maxIterations?: number
   ): Promise<AgentResult> {
+    const effectiveMaxIterations = maxIterations ?? this.maxIterations;
     // Load both agent configurations upfront
     let agent1Config: AgentConfig;
     let agent2Config: AgentConfig;
@@ -206,16 +214,24 @@ export class AgentOrchestrator {
     let iterations = 0;
     let finalOutput = '';
 
-    for (let i = 0; i < maxIterations; i++) {
+    // Log conversation start
+    logger.debug(`Starting agent conversation: maxIterations=${effectiveMaxIterations}`);
+
+    for (let i = 0; i < effectiveMaxIterations; i++) {
       iterations = i + 1;
+      logger.debug(`Iteration ${iterations}/${effectiveMaxIterations} starting`);
 
       // Agent 1 responds
+      logger.debug(`Agent 1 (${agent1Name}) responding...`);
+      logger.info(`\n┌─ Agent: ${agent1Name} (Iteration ${iterations}) ────────`);
       const agent1Result = await this.executeAgentWithConfig(
         agent1Config,
         agent1Messages
       );
+      logger.debug(`Agent 1 result: success=${agent1Result.success}, output length=${agent1Result.output?.length || 0}`);
 
       if (!agent1Result.success) {
+        logger.error(`Agent ${agent1Name} failed: ${agent1Result.error}`);
         return {
           success: false,
           output: finalOutput,
@@ -240,6 +256,7 @@ export class AgentOrchestrator {
 
       // Check for convergence after agent 1
       const convergence1 = detectConvergence([...agent1Messages, ...agent2Messages]);
+      logger.debug(`Convergence check after agent 1: converged=${convergence1.converged}, reason=${convergence1.reason}`);
       if (convergence1.converged) {
         return {
           success: true,
@@ -259,12 +276,16 @@ export class AgentOrchestrator {
       }
 
       // Agent 2 responds
+      logger.debug(`Agent 2 (${agent2Name}) responding...`);
+      logger.info(`\n┌─ Agent: ${agent2Name} (Iteration ${iterations}) ────────`);
       const agent2Result = await this.executeAgentWithConfig(
         agent2Config,
         agent2Messages
       );
+      logger.debug(`Agent 2 result: success=${agent2Result.success}, output length=${agent2Result.output?.length || 0}`);
 
       if (!agent2Result.success) {
+        logger.error(`Agent ${agent2Name} failed: ${agent2Result.error}`);
         return {
           success: false,
           output: finalOutput,
@@ -289,6 +310,7 @@ export class AgentOrchestrator {
 
       // Check for convergence after agent 2
       const convergence2 = detectConvergence([...agent1Messages, ...agent2Messages]);
+      logger.debug(`Convergence check after agent 2: converged=${convergence2.converged}, reason=${convergence2.reason}`);
       if (convergence2.converged) {
         return {
           success: true,
@@ -309,6 +331,7 @@ export class AgentOrchestrator {
     }
 
     // Max iterations reached without convergence
+    logger.debug(`Max iterations reached: iterations=${iterations}, maxIterations=${effectiveMaxIterations}`);
     return {
       success: false,
       output: finalOutput,
@@ -316,7 +339,7 @@ export class AgentOrchestrator {
       tokensUsed: totalTokens,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
-      error: `Max iterations (${maxIterations}) reached without convergence`,
+      error: `Max iterations (${effectiveMaxIterations}) reached without convergence`,
       metadata: {
         converged: false,
         iterations,
@@ -334,6 +357,138 @@ export class AgentOrchestrator {
   async singleAgentTask(agentName: string, prompt: string): Promise<AgentResult> {
     const messages: AgentMessage[] = [{ role: 'user', content: prompt }];
     return this.executeAgent(agentName, messages);
+  }
+
+  /**
+   * Execute multiple agent tasks in parallel with controlled concurrency
+   *
+   * This method implements graceful degradation - if some tasks fail, the successful
+   * results are still returned. Progress tracking reports both successes and failures.
+   *
+   * @param tasks - Array of tasks with agentName and prompt
+   * @param concurrency - Maximum number of concurrent tasks (default: 5)
+   * @param onProgress - Optional callback for progress updates
+   * @returns Array of AgentResults in the same order as input tasks
+   */
+  async parallelAgentTasks(
+    tasks: Array<{ agentName: string; prompt: string; id?: string }>,
+    concurrency: number = 5,
+    onProgress?: (completed: number, total: number, lastId?: string) => void
+  ): Promise<Array<AgentResult & { id?: string }>> {
+    const results: Array<AgentResult & { id?: string }> = new Array(tasks.length);
+    let completedCount = 0;
+    let failedCount = 0;
+
+    // Process tasks in chunks to control concurrency
+    for (let i = 0; i < tasks.length; i += concurrency) {
+      const chunk = tasks.slice(i, i + concurrency);
+      const chunkPromises = chunk.map(async (task, chunkIndex) => {
+        try {
+          const result = await this.singleAgentTask(task.agentName, task.prompt);
+          completedCount++;
+
+          if (!result.success) {
+            failedCount++;
+            logger.warn(
+              `Task ${task.id || i + chunkIndex} failed: ${result.error || 'Unknown error'}`
+            );
+          }
+
+          if (onProgress) {
+            onProgress(completedCount, tasks.length, task.id);
+          }
+          return { result, index: i + chunkIndex, id: task.id };
+        } catch (error) {
+          // Catch unexpected errors that bypass singleAgentTask error handling
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          failedCount++;
+          completedCount++;
+
+          logger.error(
+            `Task ${task.id || i + chunkIndex} encountered unexpected error: ${errorMessage}`
+          );
+
+          if (onProgress) {
+            onProgress(completedCount, tasks.length, task.id);
+          }
+
+          return {
+            result: {
+              success: false,
+              output: '',
+              cost: 0,
+              tokensUsed: 0,
+              error: `Unexpected error: ${errorMessage}`,
+              metadata: { agentName: task.agentName },
+            },
+            index: i + chunkIndex,
+            id: task.id,
+          };
+        }
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+      for (const { result, index, id } of chunkResults) {
+        results[index] = { ...result, id };
+      }
+    }
+
+    // Log summary of parallel execution
+    const successCount = completedCount - failedCount;
+    if (failedCount > 0) {
+      logger.warn(
+        `Parallel execution completed: ${successCount}/${tasks.length} succeeded, ${failedCount} failed`
+      );
+    } else {
+      logger.debug(`Parallel execution completed: ${successCount}/${tasks.length} succeeded`);
+    }
+
+    return results;
+  }
+
+  /**
+   * Execute parallel tasks with full error isolation and detailed reporting
+   *
+   * This is a more explicit version of parallelAgentTasks that separates
+   * successful results from errors, useful when you need fine-grained control
+   * over partial failure handling.
+   *
+   * @param tasks - Array of async task functions to execute
+   * @returns Object containing successful results and errors with indices
+   */
+  async executeParallelTasks<T>(
+    tasks: Array<() => Promise<T>>
+  ): Promise<{
+    results: Array<T | undefined>;
+    errors: Array<{ index: number; error: Error } | undefined>;
+    successCount: number;
+    failureCount: number;
+  }> {
+    const results: Array<T | undefined> = new Array(tasks.length);
+    const errors: Array<{ index: number; error: Error } | undefined> = new Array(tasks.length);
+    let successCount = 0;
+    let failureCount = 0;
+
+    await Promise.all(
+      tasks.map(async (task, index) => {
+        try {
+          const result = await task();
+          results[index] = result;
+          successCount++;
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          errors[index] = { index, error: err };
+          failureCount++;
+          logger.error(`Task at index ${index} failed: ${err.message}`);
+        }
+      })
+    );
+
+    logger.debug(
+      `Parallel task execution: ${successCount} succeeded, ${failureCount} failed out of ${tasks.length} total`
+    );
+
+    return { results, errors, successCount, failureCount };
   }
 
   /**
@@ -355,20 +510,38 @@ export class AgentOrchestrator {
       // Acquire rate limit
       await this.rateLimiter.acquire(estimatedTokens);
 
-      // Call the Anthropic API
-      const result = await this.client.createMessage({
-        model: agentConfig.model,
-        systemPrompt: agentConfig.instructions,
-        messages,
-        maxTokens: agentConfig.maxTokens,
-        temperature: agentConfig.temperature,
-      });
+      // Call the Anthropic API (with or without streaming)
+      let result;
+      if (this.streaming) {
+        result = await this.client.createMessageStreaming(
+          {
+            model: agentConfig.model,
+            systemPrompt: agentConfig.instructions,
+            messages,
+            maxTokens: agentConfig.maxTokens,
+            temperature: agentConfig.temperature,
+            enableCaching: agentConfig.enableCaching,
+          },
+          this.onStream // Can be undefined - that's fine for silent streaming
+        );
+      } else {
+        result = await this.client.createMessage({
+          model: agentConfig.model,
+          systemPrompt: agentConfig.instructions,
+          messages,
+          maxTokens: agentConfig.maxTokens,
+          temperature: agentConfig.temperature,
+          enableCaching: agentConfig.enableCaching,
+        });
+      }
 
-      // Record cost
+      // Record cost (with cache-aware pricing)
       const cost = this.costTracker.recordUsage(
         agentConfig.model,
         result.inputTokens,
-        result.outputTokens
+        result.outputTokens,
+        result.cacheCreationInputTokens,
+        result.cacheReadInputTokens
       );
 
       return {
@@ -378,6 +551,8 @@ export class AgentOrchestrator {
         tokensUsed: result.inputTokens + result.outputTokens,
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
+        cacheCreationTokens: result.cacheCreationInputTokens,
+        cacheReadTokens: result.cacheReadInputTokens,
         metadata: {
           agentName: agentConfig.name,
           model: agentConfig.model,

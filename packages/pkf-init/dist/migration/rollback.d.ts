@@ -1,9 +1,9 @@
 /**
  * PKF Init Rollback Manager
- * Provides rollback functionality to restore from backups
+ * Provides rollback functionality to restore from backups and reverse migrations
  */
 import type { WorkflowStateManager } from '../state/workflow-state.js';
-import type { LoadedConfig } from '../types/index.js';
+import type { LoadedConfig, MigrationOperation } from '../types/index.js';
 /**
  * Result of a rollback operation
  */
@@ -14,6 +14,10 @@ export interface RollbackResult {
     removedFiles: string[];
     /** List of files that were restored */
     restoredFiles: string[];
+    /** List of files that were moved back to original locations */
+    movedBack: string[];
+    /** Number of operations rolled back */
+    operationsRolledBack: number;
     /** Error message if rollback failed */
     error?: string;
 }
@@ -30,11 +34,34 @@ export declare class RollbackManager {
      */
     constructor(config: LoadedConfig, stateManager: WorkflowStateManager);
     /**
-     * Perform rollback operation
+     * Perform rollback operation using backup
      * @param backupPath - Path to backup directory
      * @returns Rollback result
      */
     rollback(backupPath: string): Promise<RollbackResult>;
+    /**
+     * Rollback migration operations in reverse order
+     * This reverses the effects of file moves, writes, and deletes
+     *
+     * @param operations - List of operations to rollback (in original order)
+     * @param backupPath - Optional backup path for content restoration
+     * @returns Rollback result
+     */
+    rollbackOperations(operations: MigrationOperation[], backupPath?: string): Promise<RollbackResult>;
+    /**
+     * Move a file back to its original location
+     * @param currentPath - Current file path
+     * @param originalPath - Original file path
+     * @returns True if move was successful
+     */
+    private moveFileBack;
+    /**
+     * Restore a single file from backup
+     * @param filePath - Relative file path
+     * @param backupPath - Path to backup directory
+     * @returns True if file was restored
+     */
+    private restoreFileFromBackup;
     /**
      * Verify that backup exists and is valid
      * @param backupPath - Path to backup directory

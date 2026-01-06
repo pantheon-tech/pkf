@@ -176,3 +176,7 @@ When analyzing PKF documentation:
 
 **Version:** 1.0.0
 **Last Updated:** 2025-12-24
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md

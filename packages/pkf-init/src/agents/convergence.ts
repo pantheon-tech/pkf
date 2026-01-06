@@ -18,10 +18,15 @@ const convergenceSignals = [
 
 /**
  * Implicit agreement patterns for natural language consensus
+ * These must be VERY specific to avoid false positives from casual language.
+ * Phrases like "ready to proceed" or "looks good" are too common in discussion.
+ * Only match explicit, unambiguous final agreement statements.
  */
 const agreementPatterns = [
-  /I agree|approved|looks good|ready to proceed/i,
-  /no further changes|this is complete|ready for/i,
+  // Only match very explicit final agreement phrases
+  /\bfully approved\b|\bfinal approval\b|\bI fully agree\b/i,
+  /\bno changes needed\b|\bno modifications required\b/i,
+  /\bschema is complete\b|\bdesign is final\b/i,
 ];
 
 /**
@@ -52,11 +57,20 @@ function containsAgreement(content: string): boolean {
 }
 
 /**
+ * Minimum number of messages required before convergence can be detected.
+ * This ensures at least one full round-trip where both agents have responded.
+ * Format: [user: initial, assistant: agent1, user: forwarded, assistant: agent2]
+ * = 4 messages minimum for one full iteration
+ */
+const MIN_MESSAGES_FOR_CONVERGENCE = 4;
+
+/**
  * Detect convergence in a conversation between agents
  *
  * Checks for:
- * 1. Explicit convergence signals (highest priority)
- * 2. Implicit convergence through agreement patterns in last 4 messages
+ * 1. Minimum message count (ensures at least one full round-trip)
+ * 2. Explicit convergence signals (highest priority)
+ * 3. Implicit convergence through agreement patterns in last 4 messages
  *
  * @param messages - Array of agent messages in the conversation
  * @returns ConvergenceResult indicating if convergence was detected
@@ -66,6 +80,15 @@ export function detectConvergence(messages: AgentMessage[]): ConvergenceResult {
     return {
       converged: false,
       reason: 'No messages to analyze',
+    };
+  }
+
+  // Require at least one full round-trip before allowing convergence
+  // This ensures both agents have had a chance to respond
+  if (messages.length < MIN_MESSAGES_FOR_CONVERGENCE) {
+    return {
+      converged: false,
+      reason: `Minimum ${MIN_MESSAGES_FOR_CONVERGENCE} messages required (have ${messages.length})`,
     };
   }
 
@@ -97,12 +120,13 @@ export function detectConvergence(messages: AgentMessage[]): ConvergenceResult {
     }
   }
 
-  // Check for shorter conversations: if we have 2+ messages and last 2 agree
-  if (messages.length >= 2) {
+  // Check for shorter conversations: if we have 4+ messages and last 2 agree
+  if (messages.length >= MIN_MESSAGES_FOR_CONVERGENCE) {
     const lastTwoMessages = messages.slice(-2);
     const bothAgree = lastTwoMessages.every((msg) => containsAgreement(msg.content));
 
-    // For 2-3 messages, if both last messages agree and they're from different roles
+    // For conversations with at least one full iteration, if both last messages agree
+    // and they're from different roles (agent1 and agent2)
     if (
       bothAgree &&
       lastTwoMessages[0].role !== lastTwoMessages[1].role

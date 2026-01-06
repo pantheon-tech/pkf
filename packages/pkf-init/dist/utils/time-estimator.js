@@ -3,8 +3,10 @@
  * Utilities for estimating workflow time and generating dry-run reports
  */
 import { glob } from 'glob';
+import { readFile } from 'node:fs/promises';
 import chalk from 'chalk';
 import path from 'node:path';
+import { AnthropicClient } from '../api/anthropic-client.js';
 /**
  * Base estimates per stage (in minutes)
  */
@@ -88,12 +90,57 @@ export class TimeEstimator {
  */
 export class DryRunReport {
     config;
+    client = null;
     /**
      * Create a new DryRunReport
      * @param config - Loaded configuration
+     * @param apiKey - Optional API key for accurate token counting
      */
-    constructor(config) {
+    constructor(config, apiKey) {
         this.config = config;
+        if (apiKey) {
+            this.client = new AnthropicClient(apiKey, { useOAuth: config.useOAuth });
+        }
+    }
+    /**
+     * Count tokens using the API (more accurate than heuristics)
+     * Falls back to heuristic if API unavailable
+     * @param content - Content to count tokens for
+     * @param model - Model to count for
+     * @returns Token count
+     */
+    async countTokens(content, model = 'claude-sonnet-4-5-20250929') {
+        if (!this.client) {
+            // Heuristic: ~4 characters per token for English text
+            return Math.ceil(content.length / 4);
+        }
+        try {
+            const result = await this.client.countTokens({
+                model,
+                systemPrompt: '',
+                messages: [{ role: 'user', content }],
+            });
+            return result.inputTokens;
+        }
+        catch {
+            // Fall back to heuristic
+            return Math.ceil(content.length / 4);
+        }
+    }
+    /**
+     * Count tokens for a file
+     * @param filePath - Path to file
+     * @returns Token count
+     */
+    async countFileTokens(filePath) {
+        try {
+            const content = await readFile(filePath, 'utf-8');
+            return this.countTokens(content);
+        }
+        catch {
+            // Assume average document size
+            return 1000;
+        }
     }
     /**
      * Calculate cost for given token usage
@@ -105,12 +152,32 @@ export class DryRunReport {
         return inputCost + outputCost;
     }
     /**
-     * Estimate average document size in tokens
+     * Estimate average document size in tokens (heuristic fallback)
      */
     estimateDocSize() {
         // Average markdown document is about 500-2000 tokens
         // Use 1000 as a middle estimate
         return 1000;
+    }
+    /**
+     * Calculate actual document tokens if API is available
+     * @param markdownFiles - List of markdown file paths
+     * @returns Total tokens across all documents
+     */
+    async calculateActualDocTokens(markdownFiles) {
+        if (!this.client || markdownFiles.length === 0) {
+            return markdownFiles.length * this.estimateDocSize();
+        }
+        // Sample up to 10 files for accurate estimate
+        const sampleSize = Math.min(10, markdownFiles.length);
+        const sample = markdownFiles.slice(0, sampleSize);
+        let totalSampleTokens = 0;
+        for (const file of sample) {
+            totalSampleTokens += await this.countFileTokens(file);
+        }
+        // Extrapolate to all files
+        const avgTokensPerFile = totalSampleTokens / sampleSize;
+        return Math.round(avgTokensPerFile * markdownFiles.length);
     }
     /**
      * Determine project complexity based on file count and structure

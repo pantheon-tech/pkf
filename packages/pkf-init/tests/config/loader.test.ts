@@ -58,11 +58,20 @@ describe('ConfigLoader', () => {
 
     it('throws error when no API key provided', async () => {
       delete process.env.ANTHROPIC_API_KEY;
+      const savedOAuthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
 
-      const options: InitOptions = {};
-      const loader = new ConfigLoader(options, tempDir);
+      try {
+        const options: InitOptions = {};
+        const loader = new ConfigLoader(options, tempDir);
 
-      await expect(loader.load()).rejects.toThrow('Anthropic API key required');
+        await expect(loader.load()).rejects.toThrow('Anthropic API key required');
+      } finally {
+        // Restore OAuth token if it was set
+        if (savedOAuthToken) {
+          process.env.CLAUDE_CODE_OAUTH_TOKEN = savedOAuthToken;
+        }
+      }
     });
   });
 

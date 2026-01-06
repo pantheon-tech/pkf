@@ -106,6 +106,109 @@ describe('InitLockManager', () => {
         /PKF initialization already in progress/
       );
     });
+
+    it('prevents concurrent lock acquisition attempts', async () => {
+      // Create multiple lock managers attempting to acquire simultaneously
+      const managers = Array.from({ length: 5 }, () => new InitLockManager(tempDir));
+
+      // Attempt to acquire locks concurrently
+      const results = await Promise.allSettled(
+        managers.map(manager => manager.acquire())
+      );
+
+      // Exactly one should succeed, others should fail
+      const successes = results.filter(r => r.status === 'fulfilled');
+      const failures = results.filter(r => r.status === 'rejected');
+
+      expect(successes.length).toBe(1);
+      expect(failures.length).toBe(4);
+
+      // All failures should be due to existing lock
+      failures.forEach(result => {
+        expect((result as PromiseRejectedResult).reason.message).toMatch(
+          /PKF initialization already in progress/
+        );
+      });
+
+      // Clean up - find and release the successful lock
+      for (const manager of managers) {
+        if (manager.isLocked()) {
+          await manager.release();
+          break;
+        }
+      }
+    });
+
+    it('handles concurrent attempts with stale lock removal', async () => {
+      // Create a stale lock
+      const lockPath = path.join(tempDir, '.pkf-init.lock');
+      const staleTimestamp = Date.now() - 3700000; // > 1 hour old
+      const staleLockData = {
+        pid: 99999,
+        timestamp: staleTimestamp,
+        version: '1.0.0',
+      };
+      await fs.writeFile(lockPath, JSON.stringify(staleLockData), 'utf-8');
+
+      // Suppress console.warn for this test
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Create multiple managers attempting to acquire simultaneously
+      const managers = Array.from({ length: 3 }, () => new InitLockManager(tempDir));
+
+      // All should detect stale lock and attempt to acquire
+      const results = await Promise.allSettled(
+        managers.map(manager => manager.acquire())
+      );
+
+      // Exactly one should succeed after removing stale lock
+      const successes = results.filter(r => r.status === 'fulfilled');
+      const failures = results.filter(r => r.status === 'rejected');
+
+      expect(successes.length).toBe(1);
+      expect(failures.length).toBe(2);
+
+      // At least one warning about force releasing stale lock
+      expect(warnSpy).toHaveBeenCalled();
+
+      // Clean up
+      for (const manager of managers) {
+        if (manager.isLocked()) {
+          await manager.release();
+          break;
+        }
+      }
+
+      warnSpy.mockRestore();
+    });
+
+    it('atomic lock creation prevents TOCTOU vulnerability', async () => {
+      // This test verifies that even if two processes check simultaneously,
+      // only one can create the lock due to O_EXCL flag
+
+      const manager1 = new InitLockManager(tempDir);
+      const manager2 = new InitLockManager(tempDir);
+
+      // Start both acquisitions at nearly the same time
+      const [result1, result2] = await Promise.allSettled([
+        manager1.acquire(),
+        manager2.acquire(),
+      ]);
+
+      // One succeeds, one fails
+      const success = [result1, result2].find(r => r.status === 'fulfilled');
+      const failure = [result1, result2].find(r => r.status === 'rejected');
+
+      expect(success).toBeDefined();
+      expect(failure).toBeDefined();
+      expect((failure as PromiseRejectedResult).reason.message).toMatch(
+        /PKF initialization already in progress/
+      );
+
+      // Clean up
+      if (manager1.isLocked()) await manager1.release();
+      if (manager2.isLocked()) await manager2.release();
+    });
   });
 
   describe('release', () => {

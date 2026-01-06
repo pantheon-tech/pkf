@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import * as yaml from 'js-yaml';
+import { safeLoad } from '../../src/utils/yaml.js';
 import { RegisterInitializer } from '../../src/generators/registers.js';
 
 describe('RegisterInitializer', () => {
@@ -37,7 +37,7 @@ describe('RegisterInitializer', () => {
     if (!match) {
       return null;
     }
-    return yaml.load(match[1]) as Record<string, unknown>;
+    return safeLoad(match[1]) as Record<string, unknown>;
   }
 
   /**

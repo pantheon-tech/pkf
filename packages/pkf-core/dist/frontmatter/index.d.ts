@@ -1,0 +1,32 @@
+/**
+ * Frontmatter Generation and Parsing Module
+ *
+ * Provides utilities for generating YAML frontmatter from schemas and parsing
+ * frontmatter from markdown documents.
+ *
+ * This module will be extracted from pkf-init frontmatter-related functionality
+ * in a subsequent task.
+ *
+ * @module frontmatter
+ */
+import type { GeneratedFrontmatter, ParsedFrontmatter } from '../types/frontmatter.js';
+/**
+ * Generates YAML frontmatter from a schema and data.
+ *
+ * TODO: Extract implementation from pkf-init frontmatter functionality
+ *
+ * @param _schema - JSON schema for the frontmatter
+ * @param _data - Data to populate in the frontmatter
+ * @returns Generated frontmatter with YAML and metadata
+ */
+export declare function generateFrontmatter(_schema: Record<string, unknown>, _data: Record<string, unknown>): GeneratedFrontmatter;
+/**
+ * Parses frontmatter from a markdown document.
+ *
+ * TODO: Extract implementation from pkf-init frontmatter functionality
+ *
+ * @param content - Markdown content with frontmatter
+ * @returns Parsed frontmatter data and content
+ */
+export declare function parseFrontmatter(content: string): ParsedFrontmatter;
+//# sourceMappingURL=index.d.ts.map

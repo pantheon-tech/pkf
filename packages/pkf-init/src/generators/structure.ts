@@ -1,11 +1,16 @@
 /**
  * PKF Init Structure Generator
- * Creates the PKF directory structure based on schemas.yaml
+ * Creates the PKF directory structure based on schemas.yaml and blueprint
  */
 
 import { mkdir, access } from 'fs/promises';
 import { join } from 'path';
-import * as yaml from 'js-yaml';
+import { safeLoad } from '../utils/yaml.js';
+import {
+  PKF_TYPE_TO_DIRECTORY,
+  getRequiredDirectories,
+  normalizeDocType,
+} from '../utils/type-mapping.js';
 
 /**
  * Result of structure generation
@@ -18,49 +23,14 @@ export interface GeneratedStructure {
 }
 
 /**
- * Document type to directory mapping
+ * Blueprint document entry
  */
-const TYPE_TO_DIR_MAP: Record<string, string> = {
-  // Guide types
-  guide: 'docs/guides',
-  'user-guide': 'docs/guides',
-  'developer-guide': 'docs/guides',
-  'installation-guide': 'docs/guides',
-  'getting-started': 'docs/guides',
-  tutorial: 'docs/guides',
-  howto: 'docs/guides',
-
-  // Architecture types
-  architecture: 'docs/architecture',
-  adr: 'docs/architecture/decisions',
-  'design-doc': 'docs/architecture',
-  'system-design': 'docs/architecture',
-
-  // API types
-  api: 'docs/api',
-  'api-reference': 'docs/api',
-  'api-doc': 'docs/api',
-  openapi: 'docs/api',
-
-  // Reference types
-  reference: 'docs/references',
-  specification: 'docs/references',
-
-  // Proposal types
-  proposal: 'docs/proposals',
-  rfc: 'docs/proposals',
-
-  // Register types (always created)
-  register: 'docs/registers',
-  todo: 'docs/registers',
-  issue: 'docs/registers',
-  changelog: 'docs/registers',
-};
-
-/**
- * Base directories that are always created
- */
-const BASE_DIRS = ['docs', 'docs/registers'];
+interface BlueprintDocument {
+  path?: string;
+  target_path?: string;
+  type?: string;
+  doc_type?: string;
+}
 
 /**
  * StructureGenerator - Creates PKF directory structure
@@ -82,51 +52,133 @@ export class StructureGenerator {
   /**
    * Generate the directory structure based on schemas.yaml
    * @param schemasYaml - The schemas.yaml content
+   * @param blueprintYaml - Optional blueprint YAML for target path extraction
    * @returns Information about created and existing directories
    */
-  async generate(schemasYaml: string): Promise<GeneratedStructure> {
+  async generate(schemasYaml: string, blueprintYaml?: string): Promise<GeneratedStructure> {
     // Parse schemas.yaml
-    const schemas = yaml.load(schemasYaml) as Record<string, unknown>;
+    const schemas = safeLoad(schemasYaml) as Record<string, unknown>;
 
-    // Get required directories
+    // Get required directories from schemas
     const requiredDirs = this.getRequiredDirs(schemas);
 
+    // If blueprint is provided, also extract directories from target paths
+    if (blueprintYaml) {
+      const blueprintDirs = this.getDirectoriesFromBlueprint(blueprintYaml);
+      for (const dir of blueprintDirs) {
+        requiredDirs.add(dir);
+      }
+    }
+
     // Create directories
-    return await this.createDirectories(requiredDirs);
+    return await this.createDirectories(Array.from(requiredDirs).sort());
+  }
+
+  /**
+   * Extract directories from blueprint target paths
+   * @param blueprintYaml - Blueprint YAML content
+   * @returns Set of required directory paths
+   */
+  private getDirectoriesFromBlueprint(blueprintYaml: string): Set<string> {
+    const dirs = new Set<string>();
+
+    try {
+      const blueprint = safeLoad(blueprintYaml) as Record<string, unknown>;
+
+      // Extract documents from various blueprint structures
+      const documents: BlueprintDocument[] = [];
+
+      if (blueprint.discovered_documents && Array.isArray(blueprint.discovered_documents)) {
+        documents.push(...(blueprint.discovered_documents as BlueprintDocument[]));
+      }
+
+      if (blueprint.documents && Array.isArray(blueprint.documents)) {
+        documents.push(...(blueprint.documents as BlueprintDocument[]));
+      }
+
+      const migrationPlan = blueprint.migration_plan as Record<string, unknown> | undefined;
+      if (migrationPlan?.documents && Array.isArray(migrationPlan.documents)) {
+        documents.push(...(migrationPlan.documents as BlueprintDocument[]));
+      }
+
+      // Extract directories from target paths
+      for (const doc of documents) {
+        const targetPath = doc.target_path;
+        if (targetPath && typeof targetPath === 'string') {
+          // Get the directory part of the target path
+          const lastSlash = targetPath.lastIndexOf('/');
+          if (lastSlash > 0) {
+            const dir = targetPath.substring(0, lastSlash);
+            dirs.add(dir);
+
+            // Also add parent directories
+            const parts = dir.split('/');
+            let parentPath = '';
+            for (const part of parts) {
+              parentPath = parentPath ? `${parentPath}/${part}` : part;
+              dirs.add(parentPath);
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    return dirs;
   }
 
   /**
    * Analyze document types and determine required directories
+   * Uses centralized PKF type mapping
    * @param schemas - Parsed schemas object
-   * @returns List of required directory paths
+   * @returns Set of required directory paths
    */
-  private getRequiredDirs(schemas: Record<string, unknown>): string[] {
-    const dirs = new Set<string>(BASE_DIRS);
+  private getRequiredDirs(schemas: Record<string, unknown>): Set<string> {
+    // Extract document types from schemas first
+    const documentTypesArray = this.extractDocumentTypes(schemas);
+    const documentTypes = new Set(documentTypesArray);
 
-    // Extract document types from schemas
-    const documentTypes = this.extractDocumentTypes(schemas);
+    // Start with required PKF directories
+    const dirs = new Set<string>(getRequiredDirectories(documentTypes));
 
-    // Map each document type to its directory
-    for (const docType of documentTypes) {
-      const normalizedType = docType.toLowerCase().replace(/[_\s]+/g, '-');
+    // Map each document type to its directory using centralized mapping
+    for (const docType of documentTypesArray) {
+      const normalizedType = normalizeDocType(docType);
 
       // Check if we have a direct mapping
-      if (TYPE_TO_DIR_MAP[normalizedType]) {
-        dirs.add(TYPE_TO_DIR_MAP[normalizedType]);
+      if (PKF_TYPE_TO_DIRECTORY[normalizedType]) {
+        const targetDir = PKF_TYPE_TO_DIRECTORY[normalizedType];
+        dirs.add(targetDir);
+
+        // Add parent directories
+        const parts = targetDir.split('/');
+        let parentPath = '';
+        for (const part of parts) {
+          parentPath = parentPath ? `${parentPath}/${part}` : part;
+          dirs.add(parentPath);
+        }
         continue;
       }
 
       // Check for partial matches
-      for (const [key, dir] of Object.entries(TYPE_TO_DIR_MAP)) {
+      for (const [key, dir] of Object.entries(PKF_TYPE_TO_DIRECTORY)) {
         if (normalizedType.includes(key) || key.includes(normalizedType)) {
           dirs.add(dir);
+
+          // Add parent directories
+          const parts = dir.split('/');
+          let parentPath = '';
+          for (const part of parts) {
+            parentPath = parentPath ? `${parentPath}/${part}` : part;
+            dirs.add(parentPath);
+          }
           break;
         }
       }
     }
 
-    // Sort directories to ensure parent dirs are created first
-    return Array.from(dirs).sort();
+    return dirs;
   }
 
   /**
@@ -173,7 +225,7 @@ export class StructureGenerator {
 
   /**
    * Create directories recursively
-   * @param dirs - List of directories to create
+   * @param dirs - List of directories to create (sorted)
    * @returns Information about created and existing directories
    */
   async createDirectories(dirs: string[]): Promise<GeneratedStructure> {
@@ -195,5 +247,21 @@ export class StructureGenerator {
     }
 
     return { createdDirs, existingDirs };
+  }
+
+  /**
+   * Generate structure from blueprint alone (without schemas)
+   * @param blueprintYaml - Blueprint YAML content
+   * @returns Information about created and existing directories
+   */
+  async generateFromBlueprint(blueprintYaml: string): Promise<GeneratedStructure> {
+    const dirs = this.getDirectoriesFromBlueprint(blueprintYaml);
+
+    // Add base PKF directories using empty set (gets base dirs)
+    for (const dir of getRequiredDirectories(new Set())) {
+      dirs.add(dir);
+    }
+
+    return await this.createDirectories(Array.from(dirs).sort());
   }
 }

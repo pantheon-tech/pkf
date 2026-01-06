@@ -3,9 +3,17 @@
  * Analyzes blueprints and creates migration tasks for documents
  */
 
+import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
+import { safeLoad } from '../utils/yaml.js';
 import type { LoadedConfig, MigrationTask } from '../types/index.js';
+import {
+  detectDocumentType,
+  resolveTargetPath,
+  normalizeDocType,
+  ROOT_LEVEL_FILES,
+} from '../utils/type-mapping.js';
+import type { PKFConfig } from '../config/pkf-config.js';
 
 /**
  * Haiku pricing per million tokens (for cost estimation)
@@ -14,11 +22,6 @@ const HAIKU_PRICING = {
   inputPerMillion: 0.80,
   outputPerMillion: 4.00,
 };
-
-/**
- * Average output tokens per document migration
- */
-const AVG_OUTPUT_TOKENS_PER_DOC = 1000;
 
 /**
  * Minutes per document for time estimation
@@ -45,6 +48,14 @@ export interface ExtendedMigrationTask extends MigrationTask {
   priority: number;
   /** Estimated tokens for this task */
   estimatedTokens: number;
+  /** Whether file needs to be moved (source !== target) */
+  needsMove: boolean;
+  /** Whether file needs frontmatter added */
+  needsFrontmatter: boolean;
+  /** Whether file needs to be created (doesn't exist yet) */
+  needsCreation: boolean;
+  /** Title for the document (used when creating new files) */
+  title?: string;
 }
 
 /**
@@ -73,6 +84,10 @@ interface BlueprintDocument {
   type?: string;
   doc_type?: string;
   document_type?: string;
+  has_frontmatter?: boolean;
+  hasFrontmatter?: boolean;
+  complexity?: string;
+  migration_effort?: string;
 }
 
 /**
@@ -89,86 +104,61 @@ interface Blueprint {
 }
 
 /**
- * Document type definitions with path patterns
- */
-interface DocTypePattern {
-  patterns: RegExp[];
-  targetDir: string;
-}
-
-/**
  * Migration Planner - analyzes blueprints and creates migration tasks
  */
 export class MigrationPlanner {
   private config: LoadedConfig;
   private schemasYaml: string;
-
-  /**
-   * Document type patterns for classification
-   */
-  private readonly docTypePatterns: Record<string, DocTypePattern> = {
-    readme: {
-      patterns: [/^readme\.md$/i, /\/readme\.md$/i],
-      targetDir: '',
-    },
-    changelog: {
-      patterns: [/^changelog\.md$/i, /\/changelog\.md$/i, /^changes\.md$/i],
-      targetDir: '',
-    },
-    contributing: {
-      patterns: [/^contributing\.md$/i, /\/contributing\.md$/i],
-      targetDir: '',
-    },
-    license: {
-      patterns: [/^license\.md$/i, /\/license\.md$/i],
-      targetDir: '',
-    },
-    guide: {
-      patterns: [/docs\/guides?\//i, /guides?\//i, /tutorials?\//i, /howto\//i],
-      targetDir: 'docs/guides',
-    },
-    'api-reference': {
-      patterns: [/docs\/api\//i, /api-docs?\//i, /reference\//i],
-      targetDir: 'docs/api',
-    },
-    architecture: {
-      patterns: [/docs\/architecture\//i, /architecture\//i, /design\//i, /adr\//i],
-      targetDir: 'docs/architecture',
-    },
-    specification: {
-      patterns: [/docs\/specifications?\//i, /specs?\//i],
-      targetDir: 'docs/specifications',
-    },
-    register: {
-      patterns: [/docs\/registers?\//i, /todo\.md$/i, /issues\.md$/i],
-      targetDir: 'docs/registers',
-    },
-  };
+  private pkfConfig: PKFConfig;
 
   /**
    * Priority mapping by document type
+   * Lower number = higher priority
    */
   private readonly typePriorities: Record<string, number> = {
     readme: 0,
     contributing: 0,
     license: 0,
+    'code-of-conduct': 0,
     changelog: 1,
     register: 1,
-    guide: 1,
-    architecture: 1,
-    specification: 2,
-    'api-reference': 2,
-    generic: 3,
+    todo: 1,
+    issues: 1,
+    guide: 2,
+    'guide-user': 2,
+    'guide-developer': 2,
+    tutorial: 2,
+    howto: 2,
+    architecture: 2,
+    'design-doc': 2,
+    adr: 2,
+    specification: 3,
+    spec: 3,
+    'api-reference': 3,
+    api: 3,
+    proposal: 3,
+    rfc: 3,
+    example: 4,
+    template: 4,
+    generic: 5,
+    other: 5,
   };
 
   /**
    * Create a new MigrationPlanner
    * @param config - Loaded configuration
    * @param schemasYaml - Schemas YAML content for type resolution
+   * @param pkfConfig - Optional PKF configuration
    */
-  constructor(config: LoadedConfig, schemasYaml: string) {
+  constructor(config: LoadedConfig, schemasYaml: string, pkfConfig?: PKFConfig) {
     this.config = config;
     this.schemasYaml = schemasYaml;
+    this.pkfConfig = pkfConfig ?? {
+      analysis: { maxParallelInspections: 3 },
+      orchestration: { maxIterations: 5 },
+      planning: { avgOutputTokensPerDoc: 1000 },
+      api: { maxRetries: 3, retryDelayMs: 1000, timeout: 1800000 },
+    };
   }
 
   /**
@@ -180,23 +170,32 @@ export class MigrationPlanner {
     // Parse the blueprint YAML
     let parsedBlueprint: Blueprint;
     try {
-      parsedBlueprint = yaml.load(blueprint) as Blueprint;
+      parsedBlueprint = safeLoad(blueprint) as Blueprint;
     } catch (error) {
       throw new Error(`Failed to parse blueprint YAML: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    // Parse schemas for type resolution
-    let schemas: object = {};
-    if (this.schemasYaml) {
-      try {
-        schemas = yaml.load(this.schemasYaml) as object;
-      } catch {
-        // Ignore schema parse errors, use empty object
-      }
-    }
-
     // Extract documents from blueprint
     const documents = this.extractDocuments(parsedBlueprint);
+
+    // Prepare all source paths for parallel existence checks
+    const sourcePaths = documents
+      .map((doc) => doc.path || doc.source_path || '')
+      .filter((path) => path !== '')
+      .map((sourcePath) =>
+        path.isAbsolute(sourcePath)
+          ? sourcePath
+          : path.join(this.config.rootDir, sourcePath)
+      );
+
+    // Check all file existence in parallel
+    const existenceChecks = await Promise.all(
+      sourcePaths.map((filePath) => this.fileExists(filePath))
+    );
+    const existenceMap = new Map<string, boolean>();
+    sourcePaths.forEach((filePath, index) => {
+      existenceMap.set(filePath, existenceChecks[index]);
+    });
 
     // Create migration tasks
     const tasks: ExtendedMigrationTask[] = [];
@@ -208,12 +207,30 @@ export class MigrationPlanner {
         continue;
       }
 
-      // Determine document type
-      const docType = doc.type || doc.doc_type || doc.document_type ||
-                      this.determineDocumentType(sourcePath, schemas);
+      // Determine document type - prefer blueprint, fallback to detection
+      const rawDocType = doc.type || doc.doc_type || doc.document_type ||
+                      detectDocumentType(sourcePath);
+      const docType = normalizeDocType(rawDocType);
 
-      // Generate target path
-      const targetPath = doc.target_path || this.generateTargetPath(sourcePath, docType);
+      // Use target_path from blueprint if available, otherwise generate
+      const targetPath = doc.target_path ||
+                        resolveTargetPath(sourcePath, docType, this.config.rootDir, this.config.docsDir);
+
+      // Check if source file exists (from cached parallel check)
+      const absoluteSourcePath = path.isAbsolute(sourcePath)
+        ? sourcePath
+        : path.join(this.config.rootDir, sourcePath);
+      const needsCreation = !existenceMap.get(absoluteSourcePath);
+
+      // Determine if file needs to be moved (only if it exists)
+      const normalizedSource = path.normalize(sourcePath).replace(/\\/g, '/');
+      const normalizedTarget = path.normalize(targetPath).replace(/\\/g, '/');
+      const needsMove = !needsCreation && normalizedSource !== normalizedTarget;
+
+      // Determine if file needs frontmatter
+      // New files always need frontmatter, existing files check the flag
+      const hasFrontmatter = doc.has_frontmatter || doc.hasFrontmatter || false;
+      const needsFrontmatter = needsCreation || !hasFrontmatter;
 
       // Calculate priority
       const priority = this.calculatePriority(docType, sourcePath);
@@ -229,6 +246,10 @@ export class MigrationPlanner {
         priority,
         status: 'pending',
         estimatedTokens,
+        needsMove,
+        needsFrontmatter,
+        needsCreation,
+        title: doc.path ? path.basename(doc.path, '.md') : undefined,
       };
 
       tasks.push(task);
@@ -292,86 +313,32 @@ export class MigrationPlanner {
     return documents;
   }
 
-  /**
-   * Determine document type based on file path and schemas
-   * @param filePath - Path to the file
-   * @param schemas - Parsed schemas object
-   * @returns Document type string
-   */
-  private determineDocumentType(filePath: string, schemas: object): string {
-    const normalizedPath = filePath.toLowerCase();
-
-    // Check against known patterns
-    for (const [docType, config] of Object.entries(this.docTypePatterns)) {
-      for (const pattern of config.patterns) {
-        if (pattern.test(normalizedPath)) {
-          return docType;
-        }
-      }
-    }
-
-    // Try to match against schema definitions if available
-    if (schemas && typeof schemas === 'object') {
-      const schemaTypes = Object.keys(schemas);
-      for (const schemaType of schemaTypes) {
-        // Check if path contains the schema type name
-        const typePattern = new RegExp(schemaType.replace(/-/g, '[/-]?'), 'i');
-        if (typePattern.test(normalizedPath)) {
-          return schemaType;
-        }
-      }
-    }
-
-    // Default to generic
-    return 'generic';
-  }
-
-  /**
-   * Generate target path based on source path and document type
-   * @param sourcePath - Original file path
-   * @param docType - Determined document type
-   * @returns Target path for migration
-   */
-  private generateTargetPath(sourcePath: string, docType: string): string {
-    const fileName = path.basename(sourcePath);
-    const docsDir = this.config.docsDir;
-
-    // Get target directory for this type
-    const typeConfig = this.docTypePatterns[docType];
-
-    if (typeConfig && typeConfig.targetDir) {
-      // Use the configured target directory
-      return path.join(docsDir, typeConfig.targetDir.replace('docs/', ''), fileName);
-    }
-
-    // Root-level files stay at root
-    if (['readme', 'changelog', 'contributing', 'license'].includes(docType)) {
-      return path.join(this.config.rootDir, fileName);
-    }
-
-    // Generic files go to docs root
-    return path.join(docsDir, fileName);
-  }
 
   /**
    * Calculate priority for a document
-   * @param docType - Document type
+   * @param docType - Document type (already normalized)
    * @param sourcePath - Source file path
    * @returns Priority number (0 = highest)
    */
   private calculatePriority(docType: string, sourcePath: string): number {
     // Get base priority from type
-    let priority = this.typePriorities[docType] ?? 3;
+    let priority = this.typePriorities[docType] ?? this.typePriorities['generic'];
 
     // Boost priority for files in root directory
-    const depth = sourcePath.split(path.sep).length - 1;
+    const depth = sourcePath.split('/').length - 1;
     if (depth === 0) {
       priority = Math.max(0, priority - 1);
     }
 
+    // Boost priority for root-level files
+    const fileName = path.basename(sourcePath);
+    if (ROOT_LEVEL_FILES.has(fileName)) {
+      priority = Math.max(0, priority - 1);
+    }
+
     // Boost priority for index files
-    const fileName = path.basename(sourcePath).toLowerCase();
-    if (fileName === 'index.md' || fileName === 'readme.md') {
+    const lowerFileName = fileName.toLowerCase();
+    if (lowerFileName === 'index.md' || lowerFileName === 'readme.md') {
       priority = Math.max(0, priority - 1);
     }
 
@@ -408,6 +375,20 @@ export class MigrationPlanner {
   }
 
   /**
+   * Check if a file exists
+   * @param filePath - Path to the file
+   * @returns Whether the file exists
+   */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Estimate costs for all migration tasks
    * @param tasks - List of migration tasks
    * @returns Cost estimate
@@ -425,7 +406,7 @@ export class MigrationPlanner {
     const totalInputTokens = tasks.reduce((sum, task) => sum + task.estimatedTokens, 0);
 
     // Estimate output tokens
-    const totalOutputTokens = tasks.length * AVG_OUTPUT_TOKENS_PER_DOC;
+    const totalOutputTokens = tasks.length * this.pkfConfig.planning.avgOutputTokensPerDoc;
 
     // Total tokens
     const totalTokens = totalInputTokens + totalOutputTokens;

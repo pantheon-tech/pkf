@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import * as yaml from 'js-yaml';
+import { safeLoad } from '../../src/utils/yaml.js';
 import { ConfigGenerator } from '../../src/generators/config.js';
 import type { GeneratedStructure } from '../../src/generators/structure.js';
 
@@ -52,7 +52,7 @@ document_types:
       const configYaml = await generator.generate(schemasYaml, structure);
 
       // Verify the output is valid YAML
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       expect(parsed).toBeDefined();
       expect(typeof parsed).toBe('object');
     });
@@ -69,7 +69,7 @@ version: "1.0.0"
       const structure = createMockStructure(['docs', 'docs/registers']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       expect(parsed.version).toBe('1.0.0');
     });
   });
@@ -87,7 +87,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers', 'docs/api']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const paths = parsed.paths as Record<string, string>;
 
       expect(paths).toBeDefined();
@@ -109,7 +109,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers', 'templates']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const paths = parsed.paths as Record<string, string>;
 
       expect(paths.templates).toBe('templates');
@@ -133,7 +133,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers', 'docs/guides', 'docs/api']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const docTypes = parsed.document_types as Record<string, unknown>;
 
       expect(docTypes).toBeDefined();
@@ -162,7 +162,7 @@ types:
       const structure = createMockStructure(['docs', 'docs/registers', 'docs/guides', 'docs/architecture']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const docTypes = parsed.document_types as Record<string, unknown>;
 
       expect(docTypes.tutorial).toBeDefined();
@@ -196,7 +196,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const project = parsed.project as Record<string, string>;
 
       expect(project.name).toBe('my-awesome-project');
@@ -232,7 +232,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const project = parsed.project as Record<string, string>;
 
       // Should strip git+ prefix and .git suffix
@@ -255,7 +255,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers', 'docs/api']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const project = parsed.project as Record<string, string>;
 
       expect(project.name).toBe('my-project');
@@ -285,7 +285,7 @@ document_types:
       // Should not throw, should use defaults
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const project = parsed.project as Record<string, string>;
 
       expect(project.name).toBe('my-project');
@@ -334,7 +334,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers', 'docs/guides']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const docTypes = parsed.document_types as Record<string, unknown>;
 
       // Verify register types are included
@@ -374,7 +374,7 @@ document_types:
       const structure = createMockStructure(['docs', 'docs/registers']);
       const configYaml = await generator.generate(schemasYaml, structure);
 
-      const parsed = yaml.load(configYaml) as Record<string, unknown>;
+      const parsed = safeLoad(configYaml) as Record<string, unknown>;
       const docTypes = parsed.document_types as Record<string, unknown>;
 
       // Should have exactly the three register types (built-in takes precedence)

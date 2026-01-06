@@ -107,11 +107,11 @@ migration_plan:
       expect(apiTask?.docType).toBe('api-reference');
       expect(archTask?.docType).toBe('architecture');
 
-      // Verify priorities are set correctly
-      expect(readmeTask?.priority).toBe(0); // Highest
-      expect(guideTask?.priority).toBe(1);
-      expect(apiTask?.priority).toBe(2);
-      expect(archTask?.priority).toBe(1);
+      // Verify priorities are set correctly (based on typePriorities in planner.ts)
+      expect(readmeTask?.priority).toBe(0); // Highest (boosted for root)
+      expect(guideTask?.priority).toBe(2);  // guide = 2
+      expect(apiTask?.priority).toBe(3);    // api-reference = 3
+      expect(archTask?.priority).toBe(2);   // architecture = 2
 
       // Verify byType map is populated
       expect(plan.byType.get('readme')).toBe(1);
@@ -284,16 +284,16 @@ documents:
         expect(task.priority).toBe(0);
       }
 
-      // Verify guide tasks have priority 1
+      // Verify guide tasks have priority 2
       const guideTasks = plan.tasks.filter(t => t.docType === 'guide');
       for (const task of guideTasks) {
-        expect(task.priority).toBe(1);
+        expect(task.priority).toBe(2);
       }
 
-      // Verify API tasks have priority 2
+      // Verify API tasks have priority 3
       const apiTasks = plan.tasks.filter(t => t.docType === 'api-reference');
       for (const task of apiTasks) {
-        expect(task.priority).toBe(2);
+        expect(task.priority).toBe(3);
       }
 
       // Verify tasks are sorted by priority (ascending)
